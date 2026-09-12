@@ -1,0 +1,308 @@
+[
+    {
+        "id": 1,
+        "key": "SRG121",
+        "release_date": "2024-10-10",
+        "type": "SWITCH",
+        "name": "SRG#121: Gibbon: Beyond the Trees (Switch)",
+        "url": "https://superraregames.com/products/srg-121-gibbon-beyond-the-trees",
+        "last_stock_percentage": 3
+    },
+    {
+        "id": 2,
+        "key": "PS5-17-PATCH-REQUIRED",
+        "release_date": "2025-05-29",
+        "type": "PS5",
+        "name": "PS5 #17: Laika: Aged Through Blood (PS5) (PATCH REQUIRED)",
+        "url": "https://superraregames.com/products/ps5-17-laika-aged-through-blood-ps5-patch-required",
+        "last_stock_percentage": 13
+    },
+    {
+        "id": 3,
+        "key": "SRG136",
+        "release_date": "2025-07-03",
+        "type": "SWITCH",
+        "name": "SRG#136: Aka (Switch)",
+        "url": "https://superraregames.com/products/srg-136-aka-switch",
+        "last_stock_percentage": 12
+    },
+    {
+        "id": 4,
+        "key": "SRG139",
+        "release_date": "2025-09-12",
+        "type": "SWITCH",
+        "name": "SRG#139: Mail Time (Switch)",
+        "url": "https://superraregames.com/products/srg-139-mail-time-switch",
+        "last_stock_percentage": 13
+    },
+    {
+        "id": 5,
+        "key": "SRG141",
+        "release_date": "2025-10-09",
+        "type": "SWITCH",
+        "name": "SRG#141: The Pale Beyond (Switch)",
+        "url": "https://superraregames.com/products/srg-141-the-pale-beyond-switch",
+        "last_stock_percentage": 15
+    },
+    {
+        "id": 6,
+        "key": "DE7",
+        "release_date": "2025-11-13",
+        "type": "SWITCH",
+        "name": "[Deluxe Edition] DE#7: Moonstone Island (Switch)",
+        "url": "https://superraregames.com/products/deluxe-edition-de-7-moonstone-island-switch",
+        "last_stock_percentage": 14
+    },
+    {
+        "id": 7,
+        "key": "SRG144",
+        "release_date": "2025-11-27",
+        "type": "SWITCH",
+        "name": "SRG#144: Siralim Ultimate (Switch)",
+        "url": "https://superraregames.com/products/srg-144-siralim-ultimate-switch",
+        "last_stock_percentage": 4
+    },
+    {
+        "id": 8,
+        "key": "SRG145",
+        "release_date": "2025-12-11",
+        "type": "SWITCH",
+        "name": "SRG#145: Melatonin (Switch)",
+        "url": "https://superraregames.com/products/srg-145-melatonin-switch",
+        "last_stock_percentage": 8
+    },
+    {
+        "id": 9,
+        "key": "PS521",
+        "release_date": "2026-01-08",
+        "type": "PS5",
+        "name": "PS5 #21: Shovel Knight Dig (PS5)",
+        "url": "https://superraregames.com/products/ps5-21-shovel-knight-dig-ps5",
+        "last_stock_percentage": 28
+    },
+    {
+        "id": 10,
+        "key": "PS522",
+        "release_date": "2026-01-22",
+        "type": "PS5",
+        "name": "PS5 #22: Dark Deity 2 (PS5)",
+        "url": "https://superraregames.com/products/ps5-22-dark-deity-2-ps5",
+        "last_stock_percentage": 28
+    },
+    {
+        "id": 11,
+        "key": "SRG148",
+        "release_date": "2026-02-05",
+        "type": "SWITCH",
+        "name": "SRG#148: Bad End Theater (Switch)",
+        "url": "https://superraregames.com/products/srg-148-bad-end-theater-switch",
+        "last_stock_percentage": 26
+    },
+    {
+        "id": 12,
+        "key": "SRG149",
+        "release_date": "2026-02-19",
+        "type": "SWITCH",
+        "name": "SRG#149: Grapple Dogs Cosmic Canines (Switch)",
+        "url": "https://superraregames.com/products/srg-149-grapple-dogs-cosmic-canines-switch",
+        "last_stock_percentage": 30
+    },
+    {
+        "id": 13,
+        "key": "SRG150",
+        "release_date": "2026-02-19",
+        "type": "SWITCH",
+        "name": "SRG#150: Tiny Terry's Turbo Trip (Switch)",
+        "url": "https://superraregames.com/products/srg-150-tiny-terrys-turbo-trip-switch",
+        "last_stock_percentage": 30
+    },
+    {
+        "id": 14,
+        "key": "PS523-REPRINT",
+        "release_date": "2026-02-19",
+        "type": "PS5",
+        "name": "PS5#23: Tiny Terry's Turbo Trip (PS5) [REPRINT]",
+        "url": "https://superraregames.com/products/ps5-23-tiny-terrys-turbo-trip-ps5-reprint",
+        "last_stock_percentage": 35
+    },
+    {
+        "id": 15,
+        "key": "SRG151",
+        "release_date": "2026-02-19",
+        "type": "SWITCH",
+        "name": "SRG#151: Duck Detective: The Ghost of Glamping (Switch)",
+        "url": "https://superraregames.com/products/srg-151-duck-detective-the-ghost-of-glamping-switch",
+        "last_stock_percentage": 36
+    },
+    {
+        "id": 16,
+        "key": "DE8",
+        "release_date": "2026-03-12",
+        "type": "SWITCH",
+        "name": "[Deluxe Edition] DE#8: Out of Sight (Switch)",
+        "url": "https://superraregames.com/products/deluxe-edition-de-8-out-of-sight-switch",
+        "last_stock_percentage": 35
+    },
+    {
+        "id": 17,
+        "key": "PS524",
+        "release_date": "2026-03-12",
+        "type": "PS5",
+        "name": "PS5#24: Out of Sight (PS5)",
+        "url": "https://superraregames.com/products/ps5-24-out-of-sight-ps5",
+        "last_stock_percentage": 31
+    },
+    {
+        "id": 18,
+        "key": "SRG153",
+        "release_date": "2026-03-26",
+        "type": "SWITCH",
+        "name": "SRG#153: Savant - Ascent REMIX (Switch)",
+        "url": "https://superraregames.com/products/srg-153-savant-ascent-remix-switch",
+        "last_stock_percentage": 27
+    },
+    {
+        "id": 19,
+        "key": "SRG154",
+        "release_date": "2026-04-09",
+        "type": "SWITCH",
+        "name": "SRG#154: Toree & Friends Collection (Switch)",
+        "url": "https://superraregames.com/products/srg-153-toree-friends-collection-switch",
+        "last_stock_percentage": 16
+    },
+    {
+        "id": 20,
+        "key": "PS526",
+        "release_date": "2026-04-23",
+        "type": "PS5",
+        "name": "PS5#26: Minishoot' Adventures (PS5)",
+        "url": "https://superraregames.com/products/ps5-26-minishoot-adventures-ps5",
+        "last_stock_percentage": 13
+    },
+    {
+        "id": 21,
+        "key": "SW201",
+        "release_date": "2026-04-23",
+        "type": "SWITCH2",
+        "name": "SW2#01: Minishoot' Adventures - Nintendo Switch 2 Edition",
+        "url": "https://superraregames.com/products/srgs2-01-minishoot-adventures-switch-2",
+        "last_stock_percentage": 14
+    },
+    {
+        "id": 22,
+        "key": "SE01",
+        "release_date": "2026-04-23",
+        "type": "SWITCH2",
+        "name": "[Special Edition] SE#01: Minishoot' Adventures - Nintendo Switch 2 Edition",
+        "url": "https://superraregames.com/products/special-edition-switch-2-de-01-minishoot-adventures-switch-2-edition",
+        "last_stock_percentage": 28
+    },
+    {
+        "id": 23,
+        "key": "SRG155",
+        "release_date": "2026-05-07",
+        "type": "SWITCH",
+        "name": "SRG#155: Home Safety Hotline (Switch)",
+        "url": "https://superraregames.com/products/srg-155-home-safety-hotline-switch",
+        "last_stock_percentage": 17
+    },
+    {
+        "id": 24,
+        "key": "PS527",
+        "release_date": "2026-05-07",
+        "type": "PS5",
+        "name": "PS5#27: Home Safety Hotline (PS5)",
+        "url": "https://superraregames.com/products/ps5-26-home-safety-hotline-ps5",
+        "last_stock_percentage": 15
+    },
+    {
+        "id": 25,
+        "key": "PS529",
+        "release_date": "2026-06-04",
+        "type": "PS5",
+        "name": "PS5#29: Platypus Reclayed (PS5)",
+        "url": "https://superraregames.com/products/ps5-29-platypus-reclayed-ps5",
+        "last_stock_percentage": 33
+    },
+    {
+        "id": 26,
+        "key": "SRG159",
+        "release_date": "2026-07-09",
+        "type": "SWITCH",
+        "name": "SRG#159: Sticky Business (Switch)",
+        "url": "https://superraregames.com/products/srg-159-sticky-business-switch",
+        "last_stock_percentage": 43
+    },
+    {
+        "id": 27,
+        "key": "SRG160",
+        "release_date": "2026-07-23",
+        "type": "SWITCH",
+        "name": "SRG#160: Little Misfortune (Switch)",
+        "url": "https://superraregames.com/products/srg-160-little-misfortune-switch",
+        "last_stock_percentage": 23
+    },
+    {
+        "id": 28,
+        "key": "SW202",
+        "release_date": "2026-08-13",
+        "type": "SWITCH2",
+        "name": "SW2#02: The Midnight Walk - Nintendo Switch 2 Edition",
+        "url": "https://superraregames.com/products/sw2-02-the-midnight-walk-nintendo-switch-2-edition",
+        "last_stock_percentage": 33
+    },
+    {
+        "id": 29,
+        "key": "SE02",
+        "release_date": "2026-08-13",
+        "type": "SWITCH2",
+        "name": "[Special Edition] SE#02: The Midnight Walk",
+        "url": "https://superraregames.com/products/special-edition-se-02-the-midnight-walk",
+        "last_stock_percentage": 26
+    },
+    {
+        "id": 30,
+        "key": "SRG161",
+        "release_date": "2026-08-27",
+        "type": "SWITCH",
+        "name": "SRG#161: The Golden Idol Saga (Switch)",
+        "url": "https://superraregames.com/products/srg-161-the-golden-idol-saga-switch",
+        "last_stock_percentage": 32
+    },
+    {
+        "id": 31,
+        "key": "DE10",
+        "release_date": "2026-08-27",
+        "type": "SWITCH",
+        "name": "[Deluxe Edition] DE#10: The Golden Idol Saga (Switch)",
+        "url": "https://superraregames.com/products/deluxe-edition-de-10-the-golden-idol-saga-switch",
+        "last_stock_percentage": 41
+    },
+    {
+        "id": 32,
+        "key": "PB49",
+        "release_date": "2026-08-27",
+        "type": "SWITCH",
+        "name": "PB#49: The Golden Idol Saga, Escape from Ever After, Game #163 (Switch)",
+        "url": "https://superraregames.com/products/pb-49-the-golden-idol-saga-game-162-game-163-switch",
+        "last_stock_percentage": 54
+    },
+    {
+        "id": 33,
+        "key": "SRG162",
+        "release_date": "2026-09-10",
+        "type": "SWITCH",
+        "name": "SRG#162: Escape from Ever After (Switch)",
+        "url": "https://superraregames.com/products/srg-162-escape-from-ever-after-switch",
+        "last_stock_percentage": 10
+    },
+    {
+        "id": 34,
+        "key": "PS530",
+        "release_date": "2026-09-10",
+        "type": "PS5",
+        "name": "PS5#30: Escape from Ever After (PS5)",
+        "url": "https://superraregames.com/products/ps5-30-escape-from-ever-after-ps5",
+        "last_stock_percentage": 66
+    }
+]
