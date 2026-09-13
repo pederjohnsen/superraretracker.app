@@ -7,7 +7,7 @@ const nextConfig: NextConfig = {
 export default nextConfig;
 
 module.exports = {
-  allowedDevOrigins: ['192.168.1.178'],
+  allowedDevOrigins: ['192.168.1.178'], // TODO: Remove when done testing
   async headers() {
     return [
       {

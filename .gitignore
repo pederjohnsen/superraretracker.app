@@ -41,3 +41,8 @@ yarn-error.log*
 next-env.d.ts
 
 certificates
+
+# zenstack generated client (regenerated via postinstall/zen generate)
+/zenstack/schema.ts
+/zenstack/models.ts
+/zenstack/input.ts

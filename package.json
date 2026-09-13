@@ -1,27 +1,37 @@
 {
-  "name": "superraretracker.app",
-  "version": "0.1.0",
-  "private": true,
-  "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint"
-  },
-  "dependencies": {
-    "axios": "^1.20.0",
-    "cheerio": "^1.2.0",
-    "next": "16.3.5",
-    "react": "19.2.8",
-    "react-dom": "19.2.8"
-  },
-  "devDependencies": {
-    "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "eslint": "^9",
-    "eslint-config-next": "16.3.5",
-    "typescript": "^5"
-  },
-  "packageManager": "pnpm@12.4.1+sha512.2e81e399d73fe8390dab25e06aa788ab7a5908248d2f5a370f82b481147a6a7a367bf8048f9a6fdb6460f21a66f0542dedb8b94ca2c8723596741920b1656d4c"
+    "name": "superraretracker.app",
+    "version": "0.1.0",
+    "private": true,
+    "scripts": {
+        "dev": "next dev",
+        "build": "next build",
+        "start": "next start",
+        "lint": "eslint",
+        "postinstall": "zen generate",
+        "zen:generate": "zen generate",
+        "db:push": "zen db push",
+        "db:migrate:dev": "zen migrate dev",
+        "db:migrate:deploy": "zen migrate deploy"
+    },
+    "dependencies": {
+        "@zenstackhq/orm": "^3.9.4",
+        "@zenstackhq/schema": "^3.9.4",
+        "axios": "^1.20.0",
+        "cheerio": "^1.2.0",
+        "next": "16.3.5",
+        "pg": "^8.23.0",
+        "react": "19.2.8",
+        "react-dom": "19.2.8"
+    },
+    "devDependencies": {
+        "@types/node": "^20",
+        "@types/pg": "^8.23.1",
+        "@types/react": "^19",
+        "@types/react-dom": "^19",
+        "@zenstackhq/cli": "^3.9.4",
+        "eslint": "^9",
+        "eslint-config-next": "16.3.5",
+        "typescript": "^5"
+    },
+    "packageManager": "pnpm@12.4.1+sha512.2e81e399d73fe8390dab25e06aa788ab7a5908248d2f5a370f82b481147a6a7a367bf8048f9a6fdb6460f21a66f0542dedb8b94ca2c8723596741920b1656d4c"
 }

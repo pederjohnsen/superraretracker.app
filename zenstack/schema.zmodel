@@ -1,0 +1,68 @@
+datasource db {
+  provider  = 'postgresql'
+  url       = env('DATABASE_URL')
+  directUrl = env('DATABASE_URL_UNPOOLED')
+}
+
+enum ReleaseType {
+  SWITCH
+  SWITCH2
+  PS4
+  PS5
+  XBOX
+}
+
+// A trackable Super Rare Games release, scraped from the store.
+model Release {
+  id                  String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  key                 String                @unique
+  name                String
+  url                 String
+  type                ReleaseType
+  releaseDate         DateTime
+  lastStockPercentage Int
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime?             @updatedAt
+
+  stockChecks         StockCheck[]
+  subscriptions       ReleaseSubscription[]
+}
+
+// Historical record of stock percentage readings for a release, captured by the scraper.
+model StockCheck {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  percentage Int
+  checkedAt  DateTime @default(now())
+
+  release    Release  @relation(fields: [releaseId], references: [id], onDelete: Cascade)
+  releaseId  String   @db.Uuid
+
+  @@index([releaseId, checkedAt])
+}
+
+// A browser's Web Push subscription, registered from the PWA.
+model PushSubscription {
+  id            String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  endpoint      String                @unique
+  p256dh        String
+  auth          String
+  createdAt     DateTime              @default(now())
+
+  subscriptions ReleaseSubscription[]
+}
+
+// Links a push subscription to a release with the stock threshold that should trigger a notification.
+model ReleaseSubscription {
+  id                  String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  thresholdPercentage Int
+  notifiedAt          DateTime?
+  createdAt           DateTime         @default(now())
+
+  release             Release          @relation(fields: [releaseId], references: [id], onDelete: Cascade)
+  releaseId           String           @db.Uuid
+
+  pushSubscription    PushSubscription @relation(fields: [pushSubscriptionId], references: [id], onDelete: Cascade)
+  pushSubscriptionId  String           @db.Uuid
+
+  @@unique([releaseId, pushSubscriptionId])
+}
