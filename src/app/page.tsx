@@ -1,21 +1,47 @@
 'use client';
 
-import {useState} from "react";
+import {useState, useSyncExternalStore} from "react";
 import Image from "next/image";
 import styles from "./page.module.css";
 import { useReleases } from "@/hooks/useReleases";
+import { usePushSubscriptionSync } from "@/hooks/usePushSubscriptionSync";
+
+// The Notification API has no change event, so there's nothing to subscribe to -
+// we just re-read the current permission whenever the component re-renders.
+function subscribeToNothing() {
+  return () => {};
+}
+
+function getNotificationPermission(): NotificationPermission {
+  return typeof Notification !== "undefined" ? Notification.permission : "default";
+}
+
+function getServerNotificationPermission(): NotificationPermission {
+  return "default";
+}
+
+const THRESHOLD_OPTIONS = [50, 40, 30, 25, 20, 15, 10, 5, 2];
+
+// Defaults to the highest threshold that isn't disabled for the release's current
+// stock level, so checking a box never submits a threshold above current stock.
+function getDefaultThreshold(currentPercentage: number): number {
+  return THRESHOLD_OPTIONS.find((option) => option <= currentPercentage) ?? THRESHOLD_OPTIONS[THRESHOLD_OPTIONS.length - 1];
+}
 
 export default function Home() {
   const [typeFilter, setTypeFilter] = useState("ALL");
+  const notificationPermission = useSyncExternalStore(
+    subscribeToNothing,
+    getNotificationPermission,
+    getServerNotificationPermission,
+  );
+  const [, forceRerender] = useState(0);
   const { releases, isLoading, error } = useReleases();
+  const { subscriptions, setReleaseSubscription, error: subscriptionError } = usePushSubscriptionSync();
 
   const onClickAllowNotifications = async () => {
-    const permission = await Notification.requestPermission();
-    if (permission === "granted") {
-      console.log("Notifications enabled")
-    } else {
-      console.log("Permission denied")
-    }
+    await Notification.requestPermission();
+    forceRerender((n) => n + 1);
   }
 
   const onChangeFilterType = (event: React.ChangeEvent<HTMLSelectElement>) => {
@@ -42,11 +68,13 @@ export default function Home() {
           <p>
             Track and get notified when Super Rare Games releases become low in stock.
           </p>
-          <div className={styles.enableNotifications}>
-            Enable Notifications<br />
-            <button onClick={onClickAllowNotifications}>Allow</button>
-          </div>
         </div>
+        {notificationPermission !== "granted" && (
+          <div className={styles.enableNotifications}>
+            For this app to work please enable notifications:<br />
+            <button onClick={onClickAllowNotifications}>Enable Notifications</button>
+          </div>
+        )}
         <div className={styles.trackItems}>
           <h2>Track Releases</h2>
           <div className={styles.filterByType}>
@@ -62,10 +90,32 @@ export default function Home() {
           </div>
           {isLoading && <p>Loading releases…</p>}
           {error && <p>Failed to load releases: {error.message}</p>}
-          {filteredReleases?.map(release => (
+          {subscriptionError && <p>Failed to sync notification settings: {subscriptionError.message}</p>}
+          {filteredReleases?.map(release => {
+            const thresholdPercentage = subscriptions[release.id];
+            const isSubscribed = thresholdPercentage !== undefined;
+
+            const onChangeSubscribed = (event: React.ChangeEvent<HTMLInputElement>) => {
+              setReleaseSubscription(
+                release.id,
+                event.target.checked ? getDefaultThreshold(release.lastStockPercentage) : null,
+              );
+            };
+
+            const onChangeThreshold = (event: React.ChangeEvent<HTMLSelectElement>) => {
+              setReleaseSubscription(release.id, Number(event.target.value));
+            };
+
+            return (
               <div key={`item-${release.key}`} id={`item-${release.key}`} className={styles.trackItem}>
                 <div>
-                  <input type="checkbox" id={release.key} name={release.key} value={release.key} />
+                  <input
+                    type="checkbox"
+                    id={release.key}
+                    name={release.key}
+                    checked={isSubscribed}
+                    onChange={onChangeSubscribed}
+                  />
                   <label htmlFor={release.key}><strong>{release.name}</strong></label>
                 </div>
                 <div>
@@ -73,7 +123,13 @@ export default function Home() {
                 </div>
                 <div>
                   <span>Notify me below:</span>
-                  <select id={`percentage-${release.key}`} name={`percentage-${release.key}`}>
+                  <select
+                    id={`percentage-${release.key}`}
+                    name={`percentage-${release.key}`}
+                    value={thresholdPercentage ?? getDefaultThreshold(release.lastStockPercentage)}
+                    disabled={!isSubscribed}
+                    onChange={onChangeThreshold}
+                  >
                     <option value="50" disabled={release.lastStockPercentage < 50 ? true : false}>50%</option>
                     <option value="40" disabled={release.lastStockPercentage < 40 ? true : false}>40%</option>
                     <option value="30" disabled={release.lastStockPercentage < 30 ? true : false}>30%</option>
@@ -86,8 +142,8 @@ export default function Home() {
                   </select>
                 </div>
               </div>
-            )
-          )}
+            );
+          })}
         </div>
       </main>
     </div>

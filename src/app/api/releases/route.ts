@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 
 export async function GET() {
   const releases = await db.release.findMany({
-    orderBy: { releaseDate: "desc" },
+    orderBy: { createdAt: "desc" },
   });
 
   return NextResponse.json(releases);

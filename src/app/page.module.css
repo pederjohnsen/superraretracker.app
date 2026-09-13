@@ -39,6 +39,7 @@
     align-items: flex-start;
     text-align: left;
     gap: 24px;
+    margin-bottom: 24px;
 }
 
 .trackItems {

@@ -1,12 +1,6 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
-};
-
-export default nextConfig;
-
-module.exports = {
   allowedDevOrigins: ['192.168.1.178'], // TODO: Remove when done testing
   async headers() {
     return [
@@ -44,6 +38,8 @@ module.exports = {
           },
         ],
       },
-    ]
+    ];
   },
-}
+};
+
+export default nextConfig;

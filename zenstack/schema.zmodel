@@ -26,6 +26,25 @@ model Release {
 
   stockChecks         StockCheck[]
   subscriptions       ReleaseSubscription[]
+  pollSchedule        ReleasePollSchedule?
+}
+
+// Tracks when a release is next due for a stock check. The interval adapts to how
+// fast the release's stock has been dropping, so fast-selling releases get polled
+// more often and slow/stale ones get polled less often.
+model ReleasePollSchedule {
+  id                  String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nextPollAt          DateTime  @default(now())
+  intervalMinutes     Int       @default(60)
+  lastPolledAt        DateTime?
+  consecutiveFailures Int       @default(0)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime? @updatedAt
+
+  release             Release   @relation(fields: [releaseId], references: [id], onDelete: Cascade)
+  releaseId           String    @unique @db.Uuid
+
+  @@index([nextPollAt])
 }
 
 // Historical record of stock percentage readings for a release, captured by the scraper.
