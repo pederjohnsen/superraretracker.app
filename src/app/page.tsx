@@ -37,7 +37,7 @@ export default function Home() {
   );
   const [, forceRerender] = useState(0);
   const { releases, isLoading, error } = useReleases();
-  const { subscriptions, setReleaseSubscription, error: subscriptionError } = usePushSubscriptionSync();
+  const { subscriptions, setReleaseSubscription, error: subscriptionError } = usePushSubscriptionSync(notificationPermission);
 
   const onClickAllowNotifications = async () => {
     await Notification.requestPermission();

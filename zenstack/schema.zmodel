@@ -62,6 +62,7 @@ model StockCheck {
 // A browser's Web Push subscription, registered from the PWA.
 model PushSubscription {
   id            String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clientId      String?               @unique
   endpoint      String                @unique
   p256dh        String
   auth          String

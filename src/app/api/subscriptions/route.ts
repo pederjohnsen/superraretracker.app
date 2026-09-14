@@ -9,6 +9,7 @@ type SubscriptionInput = {
 };
 
 type SyncSubscriptionsBody = {
+  clientId: string;
   endpoint: string;
   keys: { p256dh: string; auth: string };
   subscriptions: SubscriptionInput[];
@@ -16,8 +17,9 @@ type SyncSubscriptionsBody = {
 
 function isValidBody(body: unknown): body is SyncSubscriptionsBody {
   if (typeof body !== "object" || body === null) return false;
-  const { endpoint, keys, subscriptions } = body as Record<string, unknown>;
+  const { clientId, endpoint, keys, subscriptions } = body as Record<string, unknown>;
 
+  if (typeof clientId !== "string" || clientId.length === 0) return false;
   if (typeof endpoint !== "string" || endpoint.length === 0) return false;
   if (typeof keys !== "object" || keys === null) return false;
   const { p256dh, auth } = keys as Record<string, unknown>;
@@ -37,17 +39,20 @@ function isValidBody(body: unknown): body is SyncSubscriptionsBody {
 
 // GET /api/subscriptions?endpoint=... - fetch this device's current per-release alert thresholds.
 export async function GET(request: Request) {
+  const clientId = new URL(request.url).searchParams.get("clientId");
   const endpoint = new URL(request.url).searchParams.get("endpoint");
-  if (!endpoint) {
-    return NextResponse.json({ error: "Missing endpoint query parameter" }, { status: 400 });
+  if (!clientId && !endpoint) {
+    return NextResponse.json({ error: "Missing clientId or endpoint query parameter" }, { status: 400 });
   }
 
-  const pushSubscription = await db.pushSubscription.findUnique({
-    where: { endpoint },
-    include: { subscriptions: true },
-  });
+  const pushSubscription = clientId
+    ? await db.pushSubscription.findUnique({ where: { clientId }, include: { subscriptions: true } })
+    : null;
+  const legacyPushSubscription = !pushSubscription && endpoint
+    ? await db.pushSubscription.findUnique({ where: { endpoint }, include: { subscriptions: true } })
+    : null;
 
-  const subscriptions = (pushSubscription?.subscriptions ?? []).map((sub) => ({
+  const subscriptions = (pushSubscription?.subscriptions ?? legacyPushSubscription?.subscriptions ?? []).map((sub) => ({
     releaseId: sub.releaseId,
     thresholdPercentage: sub.thresholdPercentage,
   }));
@@ -68,13 +73,19 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid subscription payload" }, { status: 400 });
   }
 
-  const { endpoint, keys, subscriptions } = body;
+  const { clientId, endpoint, keys, subscriptions } = body;
 
-  const pushSubscription = await db.pushSubscription.upsert({
-    where: { endpoint },
-    create: { endpoint, p256dh: keys.p256dh, auth: keys.auth },
-    update: { p256dh: keys.p256dh, auth: keys.auth },
-  });
+  const existingByClientId = await db.pushSubscription.findUnique({ where: { clientId } });
+  const pushSubscription = existingByClientId
+    ? await db.pushSubscription.update({
+        where: { id: existingByClientId.id },
+        data: { endpoint, p256dh: keys.p256dh, auth: keys.auth },
+      })
+    : await db.pushSubscription.upsert({
+        where: { endpoint },
+        create: { clientId, endpoint, p256dh: keys.p256dh, auth: keys.auth },
+        update: { clientId, p256dh: keys.p256dh, auth: keys.auth },
+      });
 
   const existing = await db.releaseSubscription.findMany({
     where: { pushSubscriptionId: pushSubscription.id },

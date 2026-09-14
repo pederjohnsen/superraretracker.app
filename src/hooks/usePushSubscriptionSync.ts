@@ -6,6 +6,17 @@ const SYNC_DEBOUNCE_MS = 5_000;
 
 type SubscriptionMap = Record<string, number>; // releaseId -> thresholdPercentage
 
+const CLIENT_ID_STORAGE_KEY = "superraretracker.clientId";
+
+function getClientId(): string {
+  const existing = localStorage.getItem(CLIENT_ID_STORAGE_KEY);
+  if (existing) return existing;
+
+  const clientId = crypto.randomUUID();
+  localStorage.setItem(CLIENT_ID_STORAGE_KEY, clientId);
+  return clientId;
+}
+
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
@@ -17,12 +28,13 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
 // subscription, and keeps its per-release alert thresholds in sync with the
 // server - batching any local changes into a single request after a short
 // idle period instead of firing one request per checkbox/select change.
-export function usePushSubscriptionSync() {
+export function usePushSubscriptionSync(notificationPermission: NotificationPermission) {
   const [subscriptions, setSubscriptions] = useState<SubscriptionMap>({});
   const [isReady, setIsReady] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
   const pushSubscriptionRef = useRef<PushSubscription | null>(null);
+  const clientIdRef = useRef<string | null>(null);
   const syncTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasHydratedRef = useRef(false);
 
@@ -32,7 +44,7 @@ export function usePushSubscriptionSync() {
     if (typeof window === "undefined" || !("serviceWorker" in navigator) || !("PushManager" in window)) {
       return;
     }
-    if (typeof Notification === "undefined" || Notification.permission !== "granted") {
+    if (typeof Notification === "undefined" || notificationPermission !== "granted") {
       return;
     }
 
@@ -59,8 +71,14 @@ export function usePushSubscriptionSync() {
 
         if (cancelled) return;
         pushSubscriptionRef.current = pushSubscription;
+        const clientId = getClientId();
+        clientIdRef.current = clientId;
 
-        const res = await fetch(`/api/subscriptions?endpoint=${encodeURIComponent(pushSubscription.endpoint)}`);
+        const params = new URLSearchParams({
+          clientId,
+          endpoint: pushSubscription.endpoint,
+        });
+        const res = await fetch(`/api/subscriptions?${params.toString()}`);
         if (!res.ok) throw new Error(`Failed to load subscriptions (${res.status})`);
         const data: { subscriptions: { releaseId: string; thresholdPercentage: number }[] } = await res.json();
 
@@ -82,11 +100,12 @@ export function usePushSubscriptionSync() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [notificationPermission]);
 
   const syncNow = useCallback(async (current: SubscriptionMap) => {
     const pushSubscription = pushSubscriptionRef.current;
-    if (!pushSubscription) return;
+    const clientId = clientIdRef.current;
+    if (!pushSubscription || !clientId) return;
 
     const json = pushSubscription.toJSON();
     if (!json.keys?.p256dh || !json.keys?.auth) return;
@@ -96,6 +115,7 @@ export function usePushSubscriptionSync() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          clientId,
           endpoint: pushSubscription.endpoint,
           keys: { p256dh: json.keys.p256dh, auth: json.keys.auth },
           subscriptions: Object.entries(current).map(([releaseId, thresholdPercentage]) => ({
