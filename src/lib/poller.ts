@@ -4,7 +4,7 @@ import { sendPushNotification } from "@/lib/push";
 import { DateTime } from "luxon";
 
 const MIN_INTERVAL_MINUTES = 1;
-const MAX_INTERVAL_MINUTES = 240;
+const DEFAULT_MAX_INTERVAL_MINUTES = 240;
 const DEFAULT_INTERVAL_MINUTES = 60;
 const UK_TIMEZONE = "Europe/London";
 const LAUNCH_POLL_START_MINUTES = 17 * 60 + 55;
@@ -63,6 +63,11 @@ function getLaunchIntervalMinutes(launchAt: Date, now: Date): number {
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
+}
+
+function getMaxIntervalMinutes(currentPercentage: number): number {
+  if (currentPercentage < 5) return 60;
+  return DEFAULT_MAX_INTERVAL_MINUTES;
 }
 
 // Turns up to HISTORY_SIZE stock readings (newest first) into a single "% per hour"
@@ -138,7 +143,7 @@ function smallRestockIntervalCap(currentPercentage: number): number {
   if (currentPercentage <= 10) return 10;
   if (currentPercentage <= 20) return 20;
   if (currentPercentage <= 35) return 30;
-  return MAX_INTERVAL_MINUTES;
+  return getMaxIntervalMinutes(currentPercentage);
 }
 
 // After the launch window, active stock decline uses both remaining stock and its
@@ -149,8 +154,9 @@ function computeNextPollIntervalMinutes(params: {
   effectiveDropRatePerHour: number | null;
 }): number {
   const { currentPercentage, previousPercentage, effectiveDropRatePerHour } = params;
+  const maxIntervalMinutes = getMaxIntervalMinutes(currentPercentage);
   if (effectiveDropRatePerHour === null) {
-    return DEFAULT_INTERVAL_MINUTES;
+    return Math.min(DEFAULT_INTERVAL_MINUTES, maxIntervalMinutes);
   }
 
   if (previousPercentage !== null && currentPercentage > previousPercentage) {
@@ -160,17 +166,17 @@ function computeNextPollIntervalMinutes(params: {
     }
   }
 
-  if (currentPercentage <= 0 || effectiveDropRatePerHour <= 0) return MAX_INTERVAL_MINUTES;
+  if (currentPercentage <= 0 || effectiveDropRatePerHour <= 0) return maxIntervalMinutes;
 
   const hoursToSellOut = currentPercentage / effectiveDropRatePerHour;
   const intervalMinutes = hoursToSellOut * 60 * SELLOUT_LOOKAHEAD_FRACTION;
-  return clamp(intervalMinutes, MIN_INTERVAL_MINUTES, MAX_INTERVAL_MINUTES);
+  return clamp(intervalMinutes, MIN_INTERVAL_MINUTES, maxIntervalMinutes);
 }
 
 // Exponential backoff so a broken/blocked URL doesn't get hammered every cron run.
 function computeFailureBackoffMinutes(consecutiveFailures: number): number {
   const backoff = FAILURE_BACKOFF_BASE_MINUTES * 2 ** consecutiveFailures;
-  return clamp(backoff, MIN_INTERVAL_MINUTES, MAX_INTERVAL_MINUTES);
+  return clamp(backoff, MIN_INTERVAL_MINUTES, DEFAULT_MAX_INTERVAL_MINUTES);
 }
 
 
