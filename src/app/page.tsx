@@ -22,9 +22,9 @@ function getServerNotificationPermission(): NotificationPermission {
 
 const THRESHOLD_OPTIONS = [50, 40, 30, 25, 20, 15, 10, 5, 2];
 
-// Defaults to the highest threshold that isn't disabled for the release's current
-// stock level, so checking a box never submits a threshold above current stock.
-function getDefaultThreshold(currentPercentage: number): number {
+// Unknown stock means every threshold is valid, so start at the highest option.
+function getDefaultThreshold(currentPercentage: number | null): number {
+  if (currentPercentage === null) return THRESHOLD_OPTIONS[0];
   return THRESHOLD_OPTIONS.find((option) => option <= currentPercentage) ?? THRESHOLD_OPTIONS[THRESHOLD_OPTIONS.length - 1];
 }
 
@@ -119,7 +119,9 @@ export default function Home() {
                   <label htmlFor={release.key}><strong>{release.name}</strong></label>
                 </div>
                 <div>
-                  Last checked stock:<strong className="stock-percentage">{release.lastStockPercentage}%</strong>
+                  Last checked stock:<strong className="stock-percentage">
+                    {release.lastStockPercentage === null ? "N/A" : `${release.lastStockPercentage}%`}
+                  </strong>
                 </div>
                 <div>
                   <span>Notify me below:</span>
@@ -130,15 +132,15 @@ export default function Home() {
                     disabled={!isSubscribed}
                     onChange={onChangeThreshold}
                   >
-                    <option value="50" disabled={release.lastStockPercentage < 50 ? true : false}>50%</option>
-                    <option value="40" disabled={release.lastStockPercentage < 40 ? true : false}>40%</option>
-                    <option value="30" disabled={release.lastStockPercentage < 30 ? true : false}>30%</option>
-                    <option value="25" disabled={release.lastStockPercentage < 25 ? true : false}>25%</option>
-                    <option value="20" disabled={release.lastStockPercentage < 20 ? true : false}>20%</option>
-                    <option value="15" disabled={release.lastStockPercentage < 15 ? true : false}>15%</option>
-                    <option value="10" disabled={release.lastStockPercentage < 10 ? true : false}>10%</option>
-                    <option value="5" disabled={release.lastStockPercentage < 5 ? true : false}>5%</option>
-                    <option value="2" disabled={release.lastStockPercentage < 2 ? true : false}>2%</option>
+                    <option value="50" disabled={release.lastStockPercentage !== null && release.lastStockPercentage < 50}>50%</option>
+                    <option value="40" disabled={release.lastStockPercentage !== null && release.lastStockPercentage < 40}>40%</option>
+                    <option value="30" disabled={release.lastStockPercentage !== null && release.lastStockPercentage < 30}>30%</option>
+                    <option value="25" disabled={release.lastStockPercentage !== null && release.lastStockPercentage < 25}>25%</option>
+                    <option value="20" disabled={release.lastStockPercentage !== null && release.lastStockPercentage < 20}>20%</option>
+                    <option value="15" disabled={release.lastStockPercentage !== null && release.lastStockPercentage < 15}>15%</option>
+                    <option value="10" disabled={release.lastStockPercentage !== null && release.lastStockPercentage < 10}>10%</option>
+                    <option value="5" disabled={release.lastStockPercentage !== null && release.lastStockPercentage < 5}>5%</option>
+                    <option value="2" disabled={release.lastStockPercentage !== null && release.lastStockPercentage < 2}>2%</option>
                   </select>
                 </div>
               </div>

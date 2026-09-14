@@ -20,7 +20,7 @@ model Release {
   url                 String
   type                ReleaseType
   releaseDate         DateTime
-  lastStockPercentage Int
+  lastStockPercentage Int?
   createdAt           DateTime              @default(now())
   updatedAt           DateTime?             @updatedAt
 
