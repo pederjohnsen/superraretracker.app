@@ -20,6 +20,30 @@ function getServerNotificationPermission(): NotificationPermission {
   return "default";
 }
 
+const TYPE_FILTER_STORAGE_KEY = "superraretracker.typeFilter";
+const TYPE_FILTERS = new Set(["ALL", "SWITCH", "SWITCH2", "PS5"]);
+const typeFilterListeners = new Set<() => void>();
+
+function subscribeToTypeFilter(listener: () => void) {
+  typeFilterListeners.add(listener);
+  return () => typeFilterListeners.delete(listener);
+}
+
+function getTypeFilter(): string {
+  if (typeof window === "undefined") return "ALL";
+  const storedFilter = window.localStorage.getItem(TYPE_FILTER_STORAGE_KEY);
+  return storedFilter && TYPE_FILTERS.has(storedFilter) ? storedFilter : "ALL";
+}
+
+function getServerTypeFilter(): string {
+  return "ALL";
+}
+
+function setStoredTypeFilter(typeFilter: string) {
+  window.localStorage.setItem(TYPE_FILTER_STORAGE_KEY, typeFilter);
+  typeFilterListeners.forEach((listener) => listener());
+}
+
 const THRESHOLD_OPTIONS = [50, 40, 30, 25, 20, 15, 10, 5, 2];
 
 // Unknown stock means every threshold is valid, so start at the highest option.
@@ -29,7 +53,11 @@ function getDefaultThreshold(currentPercentage: number | null): number {
 }
 
 export default function Home() {
-  const [typeFilter, setTypeFilter] = useState("ALL");
+  const typeFilter = useSyncExternalStore(
+    subscribeToTypeFilter,
+    getTypeFilter,
+    getServerTypeFilter,
+  );
   const notificationPermission = useSyncExternalStore(
     subscribeToNothing,
     getNotificationPermission,
@@ -45,7 +73,7 @@ export default function Home() {
   }
 
   const onChangeFilterType = (event: React.ChangeEvent<HTMLSelectElement>) => {
-    setTypeFilter(event.target.value);
+    setStoredTypeFilter(event.target.value);
   }
 
   const filteredReleases = releases.filter(release => typeFilter === "ALL" || release.type === typeFilter);
@@ -79,7 +107,7 @@ export default function Home() {
           <h2>Track Releases</h2>
           <div className={styles.filterByType}>
             <span>Filter by type:</span>
-            <select name="type" id="type" onChange={onChangeFilterType}>
+            <select name="type" id="type" value={typeFilter} onChange={onChangeFilterType}>
               <option value="ALL">All</option>
               <option value="SWITCH">Switch</option>
               <option value="SWITCH2">Switch 2</option>
