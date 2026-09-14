@@ -5,7 +5,7 @@ const STOCK_BAR_SELECTOR = ".stock-bar";
 const REQUEST_TIMEOUT_MS = 10_000;
 
 // Scrapes a Super Rare Games product page and returns the stock bar's width percentage.
-export async function scrapeStockPercentage(url: string): Promise<number> {
+export async function scrapeStockPercentage(url: string): Promise<number | null> {
   const res = await fetch(url, {
     headers: {
       "User-Agent":
@@ -23,14 +23,17 @@ export async function scrapeStockPercentage(url: string): Promise<number> {
   const stockBar = $(STOCK_BAR_SELECTOR).first();
 
   if (stockBar.length === 0) {
-    throw new Error(`No element matching "${STOCK_BAR_SELECTOR}" found at ${url}`);
+    return null;
   }
 
   const width = stockBar.css("width") ?? "";
+  if (!width.trim()) {
+    return null;
+  }
   const stockPercentage = Number(width.replace("%", "").trim());
 
   if (isNaN(stockPercentage)) {
-    throw new Error(`Could not read a width percentage from "${STOCK_BAR_SELECTOR}" at ${url}`);
+    return null;
   }
 
   return stockPercentage;

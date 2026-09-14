@@ -1,19 +1,25 @@
 import { db } from "@/lib/db";
 import { scrapeStockPercentage } from "@/lib/scraper";
 import { sendPushNotification } from "@/lib/push";
+import { DateTime } from "luxon";
 
 const MIN_INTERVAL_MINUTES = 1;
 const MAX_INTERVAL_MINUTES = 240;
-const SOLD_OUT_INTERVAL_MINUTES = 1440;
-// No history yet for this release; check back at a moderate pace until we have a trend.
 const DEFAULT_INTERVAL_MINUTES = 60;
-// Once we know the drop rate, aim to re-check after this fraction of the estimated
-// remaining time-to-sellout, so we get several samples before stock actually hits 0.
+const UK_TIMEZONE = "Europe/London";
+const LAUNCH_POLL_START_MINUTES = 17 * 60 + 55;
+const LAUNCH_GRACE_MINUTES = 10;
+const LAUNCH_WINDOW_MINUTES = 60;
+const LAUNCH_INTERVALS = [1, 2, 5] as const;
+// During active selling, poll several times before the projected sellout time.
 const SELLOUT_LOOKAHEAD_FRACTION = 0.15;
+const SMALL_RESTOCK_THRESHOLD = 5;
 // Backoff base for repeated scrape failures (in minutes): 1, 2, 4, 8, ... capped at MAX.
 const FAILURE_BACKOFF_BASE_MINUTES = 1;
-// How many recent stock checks (plus the one we're about to take) feed the trend analysis.
-const HISTORY_SIZE = 6;
+// Analyze up to 24 checks, but never use readings older than one day.
+const HISTORY_SIZE = 24;
+const HISTORY_WINDOW_HOURS = 24;
+const MIN_TREND_INTERVALS = 3;
 // Weight given to the recency-weighted short-term rate vs. the overall trend across the
 // full history window when blending (see computeEffectiveDropRatePerHour).
 const RECENT_RATE_WEIGHT = 0.65;
@@ -41,19 +47,22 @@ async function findDueReleases(now: Date) {
 type DueRelease = Awaited<ReturnType<typeof findDueReleases>>[number];
 type StockPoint = { percentage: number; checkedAt: Date };
 
-function clamp(value: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, value));
+function getReleaseLaunchAt(releaseDate: Date): Date {
+  const launchHour = Math.floor(LAUNCH_POLL_START_MINUTES / 60);
+  const launchMinute = LAUNCH_POLL_START_MINUTES % 60;
+  const releaseDay = DateTime.fromJSDate(releaseDate, { zone: UK_TIMEZONE });
+  return releaseDay.set({ hour: launchHour, minute: launchMinute, second: 0, millisecond: 0 }).toJSDate();
 }
 
-// The lower the remaining stock, the more eagerly we poll, regardless of trend -
-// a slow drip can turn into a bulk purchase at any time once stock is scarce.
-function lowStockIntervalCeilingMinutes(currentPercentage: number): number {
-  if (currentPercentage <= 5) return 2;
-  if (currentPercentage <= 10) return 5;
-  if (currentPercentage <= 20) return 15;
-  if (currentPercentage <= 35) return 30;
-  if (currentPercentage <= 50) return 60;
-  return MAX_INTERVAL_MINUTES;
+function getLaunchIntervalMinutes(launchAt: Date, now: Date): number {
+  const elapsedMinutes = Math.max(0, (now.getTime() - launchAt.getTime()) / 60_000);
+  if (elapsedMinutes < LAUNCH_GRACE_MINUTES) return LAUNCH_INTERVALS[0];
+  if (elapsedMinutes < 30) return LAUNCH_INTERVALS[1];
+  return LAUNCH_INTERVALS[2];
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
 }
 
 // Turns up to HISTORY_SIZE stock readings (newest first) into a single "% per hour"
@@ -69,16 +78,23 @@ function computeEffectiveDropRatePerHour(points: StockPoint[]): number | null {
     return null;
   }
 
+  const newestTimestamp = points[0].checkedAt.getTime();
+  const historyWindowStart = newestTimestamp - HISTORY_WINDOW_HOURS * 60 * 60 * 1000;
+  const recentPoints = points.filter((point) => point.checkedAt.getTime() >= historyWindowStart);
+  if (recentPoints.length < 2) {
+    return null;
+  }
+
   const pairwiseRates: number[] = [];
-  for (let i = 0; i < points.length - 1; i++) {
-    const newer = points[i];
-    const older = points[i + 1];
+  for (let i = 0; i < recentPoints.length - 1; i++) {
+    const newer = recentPoints[i];
+    const older = recentPoints[i + 1];
     const hours = (newer.checkedAt.getTime() - older.checkedAt.getTime()) / (1000 * 60 * 60);
     if (hours <= 0) continue;
     pairwiseRates.push((older.percentage - newer.percentage) / hours);
   }
 
-  if (pairwiseRates.length === 0) {
+  if (pairwiseRates.length < MIN_TREND_INTERVALS) {
     return null;
   }
 
@@ -91,8 +107,8 @@ function computeEffectiveDropRatePerHour(points: StockPoint[]): number | null {
   });
   const weightedRecentRate = weightedSum / weightTotal;
 
-  const newest = points[0];
-  const oldest = points[points.length - 1];
+  const newest = recentPoints[0];
+  const oldest = recentPoints[recentPoints.length - 1];
   const spanHours = (newest.checkedAt.getTime() - oldest.checkedAt.getTime()) / (1000 * 60 * 60);
   const spanRate = spanHours > 0 ? (oldest.percentage - newest.percentage) / spanHours : null;
 
@@ -117,34 +133,37 @@ function computeEffectiveDropRatePerHour(points: StockPoint[]): number | null {
   return weightedRecentRate * RECENT_RATE_WEIGHT + spanRate * (1 - RECENT_RATE_WEIGHT);
 }
 
-// Faster stock drops => shorter interval. Instead of fixed buckets, we estimate how
-// long until the release sells out at its current (history-informed) drop rate and
-// re-check well before that, so the polling frequency scales continuously with urgency.
+function smallRestockIntervalCap(currentPercentage: number): number {
+  if (currentPercentage <= 5) return 5;
+  if (currentPercentage <= 10) return 10;
+  if (currentPercentage <= 20) return 20;
+  if (currentPercentage <= 35) return 30;
+  return MAX_INTERVAL_MINUTES;
+}
+
+// After the launch window, active stock decline uses both remaining stock and its
+// observed rate. Small restocks at low stock stay conservative rather than backing off.
 function computeNextPollIntervalMinutes(params: {
   currentPercentage: number;
+  previousPercentage: number | null;
   effectiveDropRatePerHour: number | null;
 }): number {
-  const { currentPercentage, effectiveDropRatePerHour } = params;
-
-  if (currentPercentage <= 0) {
-    return SOLD_OUT_INTERVAL_MINUTES;
-  }
-
+  const { currentPercentage, previousPercentage, effectiveDropRatePerHour } = params;
   if (effectiveDropRatePerHour === null) {
     return DEFAULT_INTERVAL_MINUTES;
   }
 
-  let intervalMinutes: number;
-  if (effectiveDropRatePerHour <= 0) {
-    // Stable or restocked: ease off, but low-stock ceiling below still applies.
-    intervalMinutes = MAX_INTERVAL_MINUTES;
-  } else {
-    const hoursToSellOut = currentPercentage / effectiveDropRatePerHour;
-    intervalMinutes = hoursToSellOut * 60 * SELLOUT_LOOKAHEAD_FRACTION;
+  if (previousPercentage !== null && currentPercentage > previousPercentage) {
+    const restockAmount = currentPercentage - previousPercentage;
+    if (restockAmount < SMALL_RESTOCK_THRESHOLD) {
+      return smallRestockIntervalCap(currentPercentage);
+    }
   }
 
-  intervalMinutes = Math.min(intervalMinutes, lowStockIntervalCeilingMinutes(currentPercentage));
+  if (currentPercentage <= 0 || effectiveDropRatePerHour <= 0) return MAX_INTERVAL_MINUTES;
 
+  const hoursToSellOut = currentPercentage / effectiveDropRatePerHour;
+  const intervalMinutes = hoursToSellOut * 60 * SELLOUT_LOOKAHEAD_FRACTION;
   return clamp(intervalMinutes, MIN_INTERVAL_MINUTES, MAX_INTERVAL_MINUTES);
 }
 
@@ -210,8 +229,37 @@ async function notifyEligibleSubscribers(release: DueRelease, currentPercentage:
 
 async function pollRelease(release: DueRelease, now: Date) {
   const previousConsecutiveFailures = release.pollSchedule?.consecutiveFailures ?? 0;
+  const launchAt = getReleaseLaunchAt(release.releaseDate);
 
-  let currentPercentage: number;
+  if (now < launchAt) {
+    await db.releasePollSchedule.upsert({
+      where: { releaseId: release.id },
+      create: {
+        releaseId: release.id,
+        nextPollAt: launchAt,
+        intervalMinutes: LAUNCH_INTERVALS[0],
+        consecutiveFailures: 0,
+      },
+      update: {
+        nextPollAt: launchAt,
+        intervalMinutes: LAUNCH_INTERVALS[0],
+        consecutiveFailures: 0,
+      },
+    });
+
+    return {
+      releaseId: release.id,
+      key: release.key,
+      success: true as const,
+      skipped: true as const,
+      reason: "before-release-window",
+      nextPollAt: launchAt.toISOString(),
+    };
+  }
+
+  const minutesSinceLaunch = (now.getTime() - launchAt.getTime()) / 60_000;
+
+  let currentPercentage: number | null;
   try {
     currentPercentage = await scrapeStockPercentage(release.url);
   } catch (err) {
@@ -230,6 +278,30 @@ async function pollRelease(release: DueRelease, now: Date) {
     throw err;
   }
 
+  if (currentPercentage === null) {
+    if (minutesSinceLaunch < LAUNCH_WINDOW_MINUTES) {
+      const intervalMinutes = getLaunchIntervalMinutes(launchAt, now);
+      const nextPollAt = new Date(now.getTime() + intervalMinutes * 60_000);
+
+      await db.releasePollSchedule.upsert({
+        where: { releaseId: release.id },
+        create: { releaseId: release.id, nextPollAt, intervalMinutes, lastPolledAt: now, consecutiveFailures: 0 },
+        update: { nextPollAt, intervalMinutes, lastPolledAt: now, consecutiveFailures: 0 },
+      });
+
+      return {
+        releaseId: release.id,
+        key: release.key,
+        success: true as const,
+        stockAvailable: false as const,
+        intervalMinutes,
+        nextPollAt: nextPollAt.toISOString(),
+      };
+    }
+
+    throw new Error(`No stock percentage found`);
+  }
+
   const previousCheck = release.stockChecks[0] as StockPoint | undefined;
   const previousPercentage = previousCheck ? previousCheck.percentage : null;
 
@@ -245,10 +317,9 @@ async function pollRelease(release: DueRelease, now: Date) {
     data: { lastStockPercentage: currentPercentage },
   });
 
-  const intervalMinutes = computeNextPollIntervalMinutes({
-    currentPercentage,
-    effectiveDropRatePerHour,
-  });
+  const intervalMinutes = minutesSinceLaunch < LAUNCH_WINDOW_MINUTES
+    ? getLaunchIntervalMinutes(launchAt, now)
+    : computeNextPollIntervalMinutes({ currentPercentage, previousPercentage, effectiveDropRatePerHour });
   const nextPollAt = new Date(now.getTime() + intervalMinutes * 60_000);
 
   await db.releasePollSchedule.upsert({
