@@ -4,11 +4,9 @@
     "private": true,
     "scripts": {
         "dev": "next dev",
-        "build": "next build",
+        "build": "zen generate && next build",
         "start": "next start",
         "lint": "eslint",
-        "postinstall": "zen generate",
-        "zen:generate": "zen generate",
         "db:push": "zen db push",
         "db:migrate:dev": "zen migrate dev",
         "db:migrate:deploy": "zen migrate deploy"
