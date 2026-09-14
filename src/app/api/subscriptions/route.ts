@@ -46,7 +46,7 @@ export async function GET(request: Request) {
   }
 
   const pushSubscription = clientId
-    ? await db.pushSubscription.findUnique({ where: { clientId }, include: { subscriptions: true } })
+    ? await db.pushSubscription.findFirst({ where: { clientId }, include: { subscriptions: true } })
     : null;
   const legacyPushSubscription = !pushSubscription && endpoint
     ? await db.pushSubscription.findUnique({ where: { endpoint }, include: { subscriptions: true } })
@@ -75,7 +75,7 @@ export async function POST(request: Request) {
 
   const { clientId, endpoint, keys, subscriptions } = body;
 
-  const existingByClientId = await db.pushSubscription.findUnique({ where: { clientId } });
+  const existingByClientId = await db.pushSubscription.findFirst({ where: { clientId } });
   const pushSubscription = existingByClientId
     ? await db.pushSubscription.update({
         where: { id: existingByClientId.id },
