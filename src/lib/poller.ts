@@ -155,24 +155,29 @@ function computeFailureBackoffMinutes(consecutiveFailures: number): number {
 }
 
 
-// Copy tone scales with how low stock actually is, since a subscriber alerted at
-// 50% shouldn't be told a release is "almost gone" when it's simply below their threshold.
+// Keep titles short across browser and mobile notification layouts; the full name belongs in the body.
 function buildStockAlertMessage(releaseName: string, currentPercentage: number): { title: string; body: string } {
+  if (currentPercentage < 5) {
+    return {
+      title: `Stock alert: ${currentPercentage}%`,
+      body: `${releaseName}: only ${currentPercentage}% left in stock — grab it before it sells out.`,
+    };
+  }
   if (currentPercentage <= 10) {
     return {
-      title: `${releaseName} is almost gone`,
-      body: `Only ${currentPercentage}% left in stock — grab it before it sells out.`,
+      title: `Stock alert: ${currentPercentage}%`,
+      body: `${releaseName}: stock is getting low at ${currentPercentage}%, but there is still time to decide.`,
     };
   }
   if (currentPercentage <= 25) {
     return {
-      title: `${releaseName} is selling fast`,
-      body: `Stock is down to ${currentPercentage}% — don't wait too long.`,
+      title: `Stock alert: ${currentPercentage}%`,
+      body: `${releaseName}: stock is down to ${currentPercentage}% — don't wait too long.`,
     };
   }
   return {
-    title: `${releaseName} stock is dropping`,
-    body: `Stock has dropped to ${currentPercentage}%, matching the alert you set.`,
+    title: `Stock alert: ${currentPercentage}%`,
+    body: `${releaseName}: stock has dropped to ${currentPercentage}%, matching the alert you set.`,
   };
 }
 
