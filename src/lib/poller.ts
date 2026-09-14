@@ -66,7 +66,8 @@ function clamp(value: number, min: number, max: number): number {
 }
 
 function getMaxIntervalMinutes(currentPercentage: number): number {
-  if (currentPercentage < 5) return 60;
+  if (currentPercentage < 5) return 30;
+  if (currentPercentage < 10) return 60;
   return DEFAULT_MAX_INTERVAL_MINUTES;
 }
 
