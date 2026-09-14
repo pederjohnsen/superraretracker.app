@@ -42,7 +42,13 @@ export async function sendPushNotification(
     keys: { p256dh: subscription.p256dh, auth: subscription.auth },
   };
 
-  const message: PushMessage = { data: JSON.stringify(payload) };
+  const message: PushMessage = {
+    data: JSON.stringify(payload),
+    options: {
+      urgency: "high",
+      ttl: 60,
+    },
+  };
 
   const requestInit = await buildPushPayload(message, webPushSubscription, vapid);
   const res = await fetch(subscription.endpoint, requestInit);
