@@ -183,7 +183,13 @@ function computeFailureBackoffMinutes(consecutiveFailures: number): number {
 
 // Keep titles short across browser and mobile notification layouts; the full name belongs in the body.
 function buildStockAlertMessage(releaseName: string, currentPercentage: number): { title: string; body: string } {
-  if (currentPercentage < 5) {
+  if (currentPercentage <= 2) {
+    return {
+      title: `Stock alert: ${currentPercentage}%`,
+      body: `${releaseName}: critically low stock at ${currentPercentage}% — act before it's too late!`
+    }
+  }
+  if (currentPercentage <= 5) {
     return {
       title: `Stock alert: ${currentPercentage}%`,
       body: `${releaseName}: only ${currentPercentage}% left in stock — grab it before it sells out.`,
@@ -192,13 +198,13 @@ function buildStockAlertMessage(releaseName: string, currentPercentage: number):
   if (currentPercentage <= 10) {
     return {
       title: `Stock alert: ${currentPercentage}%`,
-      body: `${releaseName}: stock is getting low at ${currentPercentage}%, but there is still time to decide.`,
+      body: `${releaseName}: stock is getting low at ${currentPercentage}% — don't wait too long.`,
     };
   }
   if (currentPercentage <= 25) {
     return {
       title: `Stock alert: ${currentPercentage}%`,
-      body: `${releaseName}: stock is down to ${currentPercentage}% — don't wait too long.`,
+      body: `${releaseName}: stock is down to ${currentPercentage}%, but there is still time to decide.`,
     };
   }
   return {
@@ -232,6 +238,17 @@ async function notifyEligibleSubscribers(release: DueRelease, currentPercentage:
   }
 
   return notifiedCount;
+}
+
+async function rearmTriggeredSubscribers(releaseId: string, currentPercentage: number) {
+  await db.releaseSubscription.updateMany({
+    where: {
+      releaseId,
+      notifiedAt: { not: null },
+      thresholdPercentage: { lt: currentPercentage },
+    },
+    data: { notifiedAt: null },
+  });
 }
 
 async function pollRelease(release: DueRelease, now: Date) {
@@ -335,7 +352,12 @@ async function pollRelease(release: DueRelease, now: Date) {
     update: { nextPollAt, intervalMinutes, lastPolledAt: now, consecutiveFailures: 0 },
   });
 
-  const notified = await notifyEligibleSubscribers(release, currentPercentage);
+  const stockIncreased = previousPercentage !== null && currentPercentage > previousPercentage;
+  if (stockIncreased) {
+    await rearmTriggeredSubscribers(release.id, currentPercentage);
+  }
+
+  const notified = stockIncreased ? 0 : await notifyEligibleSubscribers(release, currentPercentage);
 
   return {
     releaseId: release.id,
