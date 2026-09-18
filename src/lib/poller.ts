@@ -47,10 +47,14 @@ async function findDueReleases(now: Date) {
 type DueRelease = Awaited<ReturnType<typeof findDueReleases>>[number];
 type StockPoint = { percentage: number; checkedAt: Date };
 
-function getReleaseLaunchAt(releaseDate: Date): Date {
+function getReleaseLaunchAt(releaseDate: Date, preOrderCloseDate: Date | null): Date {
+  let releaseLaunchAt = releaseDate;
+  if (preOrderCloseDate) {
+    releaseLaunchAt = preOrderCloseDate;
+  }
   const launchHour = Math.floor(LAUNCH_POLL_START_MINUTES / 60);
   const launchMinute = LAUNCH_POLL_START_MINUTES % 60;
-  const releaseDay = DateTime.fromJSDate(releaseDate, { zone: UK_TIMEZONE });
+  const releaseDay = DateTime.fromJSDate(releaseLaunchAt, { zone: UK_TIMEZONE });
   return releaseDay.set({ hour: launchHour, minute: launchMinute, second: 0, millisecond: 0 }).toJSDate();
 }
 
@@ -253,7 +257,7 @@ async function rearmTriggeredSubscribers(releaseId: string, currentPercentage: n
 
 async function pollRelease(release: DueRelease, now: Date) {
   const previousConsecutiveFailures = release.pollSchedule?.consecutiveFailures ?? 0;
-  const launchAt = getReleaseLaunchAt(release.releaseDate);
+  const launchAt = getReleaseLaunchAt(release.releaseDate, release?.preOrderCloseDate);
 
   if (now < launchAt) {
     await db.releasePollSchedule.upsert({

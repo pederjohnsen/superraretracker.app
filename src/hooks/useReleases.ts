@@ -4,8 +4,9 @@ import { useCallback, useEffect, useState } from "react";
 import type { Release } from "../../zenstack/models";
 
 // Dates arrive as ISO strings after JSON serialization, not Date instances.
-type ReleaseDto = Omit<Release, "releaseDate" | "createdAt" | "updatedAt"> & {
+type ReleaseDto = Omit<Release, "releaseDate" | "preOrderCloseDate" | "createdAt" | "updatedAt"> & {
   releaseDate: string;
+  preOrderCloseDate: string | null;
   createdAt: string;
   updatedAt: string | null;
 };
