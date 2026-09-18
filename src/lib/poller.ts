@@ -48,13 +48,14 @@ type DueRelease = Awaited<ReturnType<typeof findDueReleases>>[number];
 type StockPoint = { percentage: number; checkedAt: Date };
 
 function getReleaseLaunchAt(releaseDate: Date, preOrderCloseDate: Date | null): Date {
-  let releaseLaunchAt = releaseDate;
+  // If preOrderCloseDate is set, stock % is not set until this time.
   if (preOrderCloseDate) {
-    releaseLaunchAt = preOrderCloseDate;
+    return DateTime.fromJSDate(preOrderCloseDate, { zone: UK_TIMEZONE }).toJSDate();
   }
+
   const launchHour = Math.floor(LAUNCH_POLL_START_MINUTES / 60);
   const launchMinute = LAUNCH_POLL_START_MINUTES % 60;
-  const releaseDay = DateTime.fromJSDate(releaseLaunchAt, { zone: UK_TIMEZONE });
+  const releaseDay = DateTime.fromJSDate(releaseDate, { zone: UK_TIMEZONE });
   return releaseDay.set({ hour: launchHour, minute: launchMinute, second: 0, millisecond: 0 }).toJSDate();
 }
 
