@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next"
 import { UpdateBanner } from "@/components/UpdateBanner";
 import "./globals.css";
+import Link from "next/dist/client/link";
 
 const geistSans = Geist({
     variable: "--font-geist-sans",
@@ -34,6 +35,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             <body>
                 {children}
                 <UpdateBanner />
+                <footer>
+                    <p>Made with &hearts; by <Link href="https://pederjohnsen.com" target="_blank">Peder Johnsen</Link></p>
+                </footer>
             </body>
             <Analytics />
         </html>
