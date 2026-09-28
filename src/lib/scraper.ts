@@ -6,7 +6,7 @@ const REQUEST_TIMEOUT_MS = 10_000;
 
 // Scrapes a Super Rare Games product page and returns the stock bar's width percentage.
 export async function scrapeStockPercentage(url: string): Promise<number | null> {
-  const res = await fetch(url, {
+  const response = await fetch(url, {
     headers: {
       "User-Agent":
         "Mozilla/5.0 (compatible; SuperRareTracker/1.0; +https://superraretracker.app)",
@@ -14,11 +14,11 @@ export async function scrapeStockPercentage(url: string): Promise<number | null>
     signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   });
 
-  if (!res.ok) {
-    throw new Error(`Request to ${url} failed with status ${res.status}`);
+  if (!response.ok) {
+    throw new Error(`Request to ${url} failed with status ${response.status}`);
   }
 
-  const html = await res.text();
+  const html = await response.text();
   const $ = cheerio.load(html);
   const stockBar = $(STOCK_BAR_SELECTOR).first();
 
