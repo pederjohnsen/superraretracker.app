@@ -16,7 +16,7 @@ export function useReleases() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
-  const fetchReleases = useCallback(async () => {
+  const refetch = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
@@ -24,8 +24,7 @@ export function useReleases() {
       if (!res.ok) {
         throw new Error(`Failed to fetch releases (${res.status})`);
       }
-      const data: ReleaseDto[] = await res.json();
-      setReleases(data);
+      setReleases(await res.json());
     } catch (err) {
       setError(err instanceof Error ? err : new Error("Failed to fetch releases"));
     } finally {
@@ -33,9 +32,28 @@ export function useReleases() {
     }
   }, []);
 
+  // isLoading starts true, so the initial load needs no synchronous setState.
   useEffect(() => {
-    fetchReleases();
-  }, [fetchReleases]);
+    const controller = new AbortController();
+    const { signal } = controller;
+    (async () => {
+      try {
+        const res = await fetch("/api/releases", { signal });
+        if (!res.ok) {
+          throw new Error(`Failed to fetch releases (${res.status})`);
+        }
+        const data: ReleaseDto[] = await res.json();
+        if (signal.aborted) return;
+        setReleases(data);
+      } catch (err) {
+        if (signal.aborted) return;
+        setError(err instanceof Error ? err : new Error("Failed to fetch releases"));
+      } finally {
+        if (!signal.aborted) setIsLoading(false);
+      }
+    })();
+    return () => controller.abort();
+  }, []);
 
-  return { releases, isLoading, error, refetch: fetchReleases };
+  return { releases, isLoading, error, refetch };
 }

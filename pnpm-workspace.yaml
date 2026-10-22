@@ -15,3 +15,6 @@ minimumReleaseAgeExclude:
   - '@next/swc-win32-x64-msvc@16.3.5'
   - eslint-config-next@16.3.5
   - next@16.3.5
+overrides:
+  '@types/react': 19.3.0
+  '@types/react-dom': 19.3.0

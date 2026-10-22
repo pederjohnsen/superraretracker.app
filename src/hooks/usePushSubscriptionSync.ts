@@ -49,15 +49,13 @@ export function usePushSubscriptionSync(notificationPermission: NotificationPerm
     }
 
     const vapidPublicKey = process.env.NEXT_PUBLIC_WEB_PUSH_VAPID_PUBLIC_KEY;
-    if (!vapidPublicKey) {
-      setError(new Error("NEXT_PUBLIC_WEB_PUSH_VAPID_PUBLIC_KEY is not configured"));
-      return;
-    }
-
     let cancelled = false;
 
     (async () => {
       try {
+        if (!vapidPublicKey) {
+          throw new Error("NEXT_PUBLIC_WEB_PUSH_VAPID_PUBLIC_KEY is not configured");
+        }
         const registration = await navigator.serviceWorker.register("/sw.js");
         await navigator.serviceWorker.ready;
 
