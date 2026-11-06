@@ -22,6 +22,10 @@ model Release {
   releaseDate         DateTime
   preOrderCloseDate   DateTime?
   lastStockPercentage Int?
+  // Product image from the store (resized by Shopify), shown on the release card.
+  coverUrl            String?
+  // Price in pence (GBP), from the store's product page.
+  pricePence          Int?
   createdAt           DateTime              @default(now())
   updatedAt           DateTime?             @updatedAt
 
@@ -77,6 +81,8 @@ model ReleaseSubscription {
   id                  String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   thresholdPercentage Int
   notifiedAt          DateTime?
+  // Stock % when the alert was sent, for "Alert sent at 24%" on the card.
+  notifiedPercentage  Int?
   createdAt           DateTime         @default(now())
 
   release             Release          @relation(fields: [releaseId], references: [id], onDelete: Cascade)

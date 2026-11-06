@@ -55,6 +55,9 @@ export async function GET(request: Request) {
   const subscriptions = (pushSubscription?.subscriptions ?? legacyPushSubscription?.subscriptions ?? []).map((sub) => ({
     releaseId: sub.releaseId,
     thresholdPercentage: sub.thresholdPercentage,
+    // When this alert last fired, and at what stock %; null until it fires (and again after a restock re-arms it).
+    notifiedAt: sub.notifiedAt,
+    notifiedPercentage: sub.notifiedPercentage,
   }));
 
   return NextResponse.json({ subscriptions });
@@ -112,7 +115,7 @@ export async function POST(request: Request) {
       // Threshold changed - clear notifiedAt so a fresh drop below the new threshold can fire again.
       await db.releaseSubscription.update({
         where: { id: current.id },
-        data: { thresholdPercentage: sub.thresholdPercentage, notifiedAt: null },
+        data: { thresholdPercentage: sub.thresholdPercentage, notifiedAt: null, notifiedPercentage: null },
       });
     }
   }
