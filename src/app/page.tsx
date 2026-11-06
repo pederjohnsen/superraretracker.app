@@ -1,12 +1,11 @@
 'use client';
 
 import { useMemo, useState, type ReactNode } from "react";
-import { BellRing } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/EmptyState";
 import { FilterBar } from "@/components/FilterBar";
 import { ReleaseCard } from "@/components/ReleaseCard";
-import { useNotificationPermission } from "@/hooks/useNotificationPermission";
+import { SetupGate } from "@/components/SetupGate";
+import { useDeviceSetup } from "@/hooks/useDeviceSetup";
 import { useNow } from "@/hooks/useNow";
 import { usePushSubscriptionSync } from "@/hooks/usePushSubscriptionSync";
 import { useReleases } from "@/hooks/useReleases";
@@ -21,7 +20,8 @@ const TRACKED_ONLY_STORAGE_KEY = "superraretracker.trackedOnly";
 const isBooleanString = (value: string): value is "true" | "false" => value === "true" || value === "false";
 
 export default function Home() {
-  const { permission, refresh: refreshPermission } = useNotificationPermission();
+  const setup = useDeviceSetup();
+  const { permission } = setup;
   const { releases, isLoading, error } = useReleases();
   const { subscriptions, sentAlerts, setReleaseSubscription, isReady, error: subscriptionError } =
     usePushSubscriptionSync(permission);
@@ -62,10 +62,25 @@ export default function Home() {
     setTrackedOnlyValue("false");
   };
 
-  const onEnableNotifications = async () => {
-    await Notification.requestPermission();
-    refreshPermission();
-  };
+  // Someone who sets up during this visit sees "You're all set" before the list.
+  // Anyone who already has notifications on goes straight to the list.
+  const [setUpThisVisit, setSetUpThisVisit] = useState(false);
+  const [finishedSetup, setFinishedSetup] = useState(false);
+  if (setup.ready && permission !== "granted" && !setUpThisVisit) setSetUpThisVisit(true);
+
+  // Nothing about the device is known until hydration, so show neither screen yet.
+  if (!setup.ready) return <main className="flex-1" />;
+  if (permission !== "granted" || (setUpThisVisit && !finishedSetup)) {
+    return (
+      <SetupGate
+        setup={setup}
+        onFinish={() => {
+          setFinishedSetup(true);
+          window.scrollTo(0, 0);
+        }}
+      />
+    );
+  }
 
   return (
     <>
@@ -77,20 +92,6 @@ export default function Home() {
       </a>
 
       <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-4 px-4 py-5">
-        {/* Temporary until the setup screen (next PR) puts the list behind notifications. */}
-        {permission !== "granted" && (
-          <div className="flex flex-col items-start gap-3 rounded-xl border border-primary/60 bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
-            <p className="m-0 text-sm">
-              <strong className="font-semibold">Turn on notifications to track releases.</strong>{" "}
-              <span className="text-muted-foreground">Alerts are sent as push notifications when stock drops to your level.</span>
-            </p>
-            <Button onClick={onEnableNotifications} disabled={permission === "denied"} className="shrink-0">
-              <BellRing aria-hidden />
-              {permission === "denied" ? "Blocked in your settings" : "Turn on notifications"}
-            </Button>
-          </div>
-        )}
-
         <section aria-labelledby="releases-heading" className="flex flex-col gap-3">
           <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
             <h1 id="releases-heading" tabIndex={-1} className="m-0 text-xl font-semibold tracking-tight">
