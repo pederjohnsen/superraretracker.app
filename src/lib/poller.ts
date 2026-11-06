@@ -2,7 +2,7 @@ import { db } from "@/lib/db";
 import { getReleaseLaunchAt } from "@/lib/launch";
 import { scrapeProductPage, type ProductPage } from "@/lib/scraper";
 import { saveProductDetails } from "@/lib/product-details";
-import { buildStockAlertMessage } from "@/lib/stock";
+import { buildRestockAlertMessage, buildStockAlertMessage } from "@/lib/stock";
 import { sendPushNotification } from "@/lib/push";
 
 const MIN_INTERVAL_MINUTES = 1;
@@ -202,6 +202,23 @@ async function notifyEligibleSubscribers(release: DueRelease, currentPercentage:
   return notifiedCount;
 }
 
+// Everyone tracking the release hears when it comes back from sold out,
+// whatever their alert level. It doesn't count as their stock alert, so
+// that still fires when stock later drops to their level.
+async function notifyRestockSubscribers(release: DueRelease, currentPercentage: number) {
+  let notifiedCount = 0;
+  for (const subscription of release.subscriptions) {
+    try {
+      const { title, body } = buildRestockAlertMessage(release.name, currentPercentage);
+      await sendPushNotification(subscription.pushSubscription, { title, body, url: release.url });
+      notifiedCount++;
+    } catch (err) {
+      console.error(`Failed to send a restock alert to subscription ${subscription.id} for release ${release.key}:`, err);
+    }
+  }
+  return notifiedCount;
+}
+
 async function rearmTriggeredSubscribers(releaseId: string, currentPercentage: number) {
   await db.releaseSubscription.updateMany({
     where: {
@@ -331,7 +348,13 @@ async function pollRelease(release: DueRelease, now: Date) {
     await rearmTriggeredSubscribers(release.id, currentPercentage);
   }
 
-  const notified = stockIncreased ? 0 : await notifyEligibleSubscribers(release, currentPercentage);
+  const restocked = previousPercentage === 0 && currentPercentage > 0;
+  const restockNotified = restocked ? await notifyRestockSubscribers(release, currentPercentage) : 0;
+
+  // Still sold out: someone who tracks a sold-out release is waiting for the
+  // restock, not a "critically low at 0%" alert.
+  const stillSoldOut = previousPercentage === 0 && currentPercentage === 0;
+  const notified = stockIncreased || stillSoldOut ? 0 : await notifyEligibleSubscribers(release, currentPercentage);
 
   return {
     releaseId: release.id,
@@ -342,6 +365,7 @@ async function pollRelease(release: DueRelease, now: Date) {
     intervalMinutes,
     nextPollAt: nextPollAt.toISOString(),
     notified,
+    restockNotified,
   };
 }
 

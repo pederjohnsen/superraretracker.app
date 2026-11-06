@@ -55,7 +55,7 @@ export function buildStockAlertMessage(
 ): { title: string; body: string } {
   const title = `Stock alert: ${currentPercentage}%`;
   switch (getStockTier(currentPercentage)) {
-    // 0% shares the critical message, as before. Restock alerts will get their own.
+    // Selling out shares the critical message; coming back gets buildRestockAlertMessage.
     case "sold-out":
     case "critical":
       return {
@@ -83,4 +83,15 @@ export function buildStockAlertMessage(
         body: `${releaseName}: stock has dropped to ${currentPercentage}%, matching the alert you set.`,
       };
   }
+}
+
+/** Sent to everyone tracking a release when it goes from sold out back into stock. */
+export function buildRestockAlertMessage(
+  releaseName: string,
+  currentPercentage: number,
+): { title: string; body: string } {
+  return {
+    title: `Restocked: ${currentPercentage}%`,
+    body: `${releaseName} is back in stock at ${currentPercentage}% — grab it before it sells out again.`,
+  };
 }

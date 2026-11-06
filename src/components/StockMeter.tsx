@@ -95,7 +95,13 @@ export function StockMeter({ stock, releaseTitle, checkedAt, liveAt, threshold, 
           />
         )}
       </div>
-      <Caption liveAt={liveAt} checkedAt={checkedAt} sentAlert={threshold !== undefined ? sentAlert : undefined} now={now} />
+      <Caption
+        liveAt={liveAt}
+        checkedAt={checkedAt}
+        sentAlert={threshold !== undefined ? sentAlert : undefined}
+        watchingForRestock={threshold !== undefined && tier === "sold-out"}
+        now={now}
+      />
     </div>
   );
 }
@@ -105,7 +111,8 @@ function Caption({
   checkedAt,
   sentAlert,
   now,
-}: Pick<StockMeterProps, "liveAt" | "checkedAt" | "sentAlert" | "now">) {
+  watchingForRestock,
+}: Pick<StockMeterProps, "liveAt" | "checkedAt" | "sentAlert" | "now"> & { watchingForRestock: boolean }) {
   let content: ReactNode = null;
   let subtle = false;
 
@@ -113,6 +120,21 @@ function Caption({
     content = (
       <>
         Stock goes live <time dateTime={liveAt} title={formatFullDateTime(liveAt)}>{formatDayTime(liveAt)}</time>
+      </>
+    );
+  } else if (watchingForRestock && now !== null) {
+    content = (
+      <>
+        Watching for a restock
+        {checkedAt && (
+          <>
+            {" "}
+            <span aria-hidden>·</span> checked{" "}
+            <time dateTime={checkedAt} title={formatFullDateTime(checkedAt)}>
+              {formatTimeAgo(checkedAt, now)}
+            </time>
+          </>
+        )}
       </>
     );
   } else if (sentAlert && now !== null) {
