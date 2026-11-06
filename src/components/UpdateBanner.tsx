@@ -70,24 +70,32 @@ export function UpdateBanner() {
 
   if (!updateAvailable) return null;
 
+  // Styled like the setup screen's cards: left-aligned, an icon badge beside the
+  // heading, border and no shadow, and the one action full width below.
   return (
     <div
       role="dialog"
       aria-modal="true"
       aria-labelledby="update-title"
       aria-describedby="update-body"
-      className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/70 p-6"
+      className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs"
     >
-      <section className="flex w-full max-w-sm flex-col items-center gap-3 rounded-md border bg-card p-6 text-center text-card-foreground shadow-lg">
-        <h2 id="update-title" className="m-0 text-lg font-semibold">
-          Update available
-        </h2>
-        <p id="update-body" className="m-0 text-sm text-muted-foreground">
-          A new version of Super Rare Tracker is ready. Update now to carry on.
-        </p>
+      <section className="flex w-full max-w-sm flex-col gap-4 rounded-md border bg-card p-5 text-card-foreground">
+        <div className="flex items-start gap-3">
+          <span aria-hidden className="inline-flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/15 text-brand-foreground">
+            <RefreshCw className="size-5" />
+          </span>
+          <div className="flex flex-col gap-1">
+            <h2 id="update-title" className="m-0 text-lg font-semibold">
+              Update available
+            </h2>
+            <p id="update-body" className="m-0 text-sm text-muted-foreground">
+              A new version of Super Rare Tracker is ready. Update now to carry on. Your tracked releases and alerts stay as they are.
+            </p>
+          </div>
+        </div>
         {/* The only way forward, so it takes focus. */}
-        <Button autoFocus className="mt-2 w-full px-4" onClick={() => window.location.reload()}>
-          <RefreshCw aria-hidden />
+        <Button autoFocus className="w-full px-4 sm:h-10" onClick={() => window.location.reload()}>
           Update now
         </Button>
       </section>
