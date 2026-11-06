@@ -204,7 +204,7 @@ function Allow({ setup }: { setup: DeviceSetup }) {
     <>
       <StepHeading title="Turn on notifications">
         Alerts are the whole point of the tracker, so the release list opens once they’re on. You’ll only hear from us
-        when a release you track hits your stock level.
+        when a release you track hits your stock level or is restocked.
       </StepHeading>
       <figure className="m-0 flex flex-col gap-1.5">
         <figcaption className="text-xs font-medium text-muted-foreground">Example alert</figcaption>

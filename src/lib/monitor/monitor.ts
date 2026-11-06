@@ -3,7 +3,7 @@ import type { ReleaseType } from "../../../zenstack/models";
 import { db } from "@/lib/db";
 import { saveProductDetails } from "@/lib/product-details";
 import { parseReleaseTitle } from "@/lib/release-title";
-import { scrapeProductPage } from "@/lib/scraper";
+import { fetchProductTags, scrapeProductPage } from "@/lib/scraper";
 import { MONITOR_CONFIG, type MonitorConfig } from "@/lib/monitor/config";
 
 // Adds new Super Rare Games releases from the store's collections. Run once a
@@ -51,6 +51,11 @@ export type MonitorResult = {
   detailsFilled: { key: string; cover: boolean; price: boolean }[];
   /** Releases still missing a cover or price after this run (product page gone, or over the per-run limit); on a dry run, how many are missing now. */
   detailsMissing: number;
+  /**
+   * Existing releases that had no saved title, catalogue and edition and now
+   * do (worked out the same way as for new ones). On a dry run, what would be saved.
+   */
+  titlesFilled: ({ key: string } & DisplayParts)[];
   /** Collections that couldn't be read. The others still run. */
   errors: string[];
 };
@@ -150,7 +155,7 @@ export async function runReleaseMonitor({
   config = MONITOR_CONFIG,
   now = new Date(),
 }: { dryRun?: boolean; maxAgeDays?: number; config?: MonitorConfig; now?: Date } = {}): Promise<MonitorResult> {
-  const result: MonitorResult = { dryRun, added: [], skipped: [], detailsFilled: [], detailsMissing: 0, errors: [] };
+  const result: MonitorResult = { dryRun, added: [], skipped: [], detailsFilled: [], detailsMissing: 0, titlesFilled: [], errors: [] };
 
   // Every collection, de-duplicated by handle.
   const products = new Map<string, StoreProduct>();
@@ -215,7 +220,45 @@ export async function runReleaseMonitor({
   }
 
   await fillMissingDetails(result, dryRun);
+  await fillMissingTitleParts(result, dryRun, config);
   return result;
+}
+
+/**
+ * Saves the card's title, catalogue number and edition for releases added
+ * before they were saved, using the product's tags like new releases do.
+ * Once saved they're left alone, so a hand correction sticks.
+ */
+async function fillMissingTitleParts(result: MonitorResult, dryRun: boolean, config: MonitorConfig) {
+  const missing = await db.release.findMany({
+    where: { title: null },
+    select: { id: true, key: true, name: true, url: true },
+    orderBy: { releaseDate: "desc" },
+    take: MAX_DETAILS_PER_RUN,
+  });
+
+  for (let i = 0; i < missing.length; i += DETAILS_CONCURRENCY) {
+    await Promise.all(
+      missing.slice(i, i + DETAILS_CONCURRENCY).map(async (release) => {
+        let tags: string[];
+        try {
+          tags = await fetchProductTags(release.url);
+        } catch (err) {
+          // Without tags the result could differ from a new release's, so try again next run.
+          console.error(`Failed to fetch tags for release ${release.key}:`, err);
+          return;
+        }
+        const parts = getDisplayParts(release.name, tags, config);
+        if (!dryRun) {
+          await db.release.update({
+            where: { id: release.id },
+            data: { title: parts.title, catalogue: parts.catalogue, edition: parts.edition },
+          });
+        }
+        result.titlesFilled.push({ key: release.key, ...parts });
+      }),
+    );
+  }
 }
 
 /**

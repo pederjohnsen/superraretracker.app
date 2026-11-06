@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Bell, BellOff, ExternalLink } from "lucide-react";
+import { Bell, BellOff, BellRing, ExternalLink } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
@@ -79,7 +79,16 @@ export function ReleaseCard({ release, threshold, sentAlert, canTrack, onThresho
       />
 
       <div className="mt-auto flex gap-2">
-        {tracked ? (
+        {tracked && soldOut ? (
+          <>
+            {/* Nothing to choose while sold out: the restock alert goes to everyone tracking it. */}
+            <p className="m-0 inline-flex h-11 min-w-0 flex-1 items-center gap-1.5 rounded-md border border-primary bg-primary/15 px-3 text-sm font-medium sm:h-9">
+              <BellRing aria-hidden className="size-4 shrink-0" />
+              <span className="truncate">Restock alert on</span>
+            </p>
+            <StopTrackingButton title={release.title} onClick={() => onThresholdChange(null)} />
+          </>
+        ) : tracked ? (
           <>
             <label htmlFor={`threshold-${release.key}`} className="sr-only">
               Alert me when stock for {release.title} is at or below
@@ -102,20 +111,19 @@ export function ReleaseCard({ release, threshold, sentAlert, canTrack, onThresho
                 </NativeSelectOption>
               ))}
             </NativeSelect>
-            <Button
-              variant="outline"
-              size="icon"
-              aria-label={`Stop tracking ${release.title}`}
-              title="Stop tracking"
-              onClick={() => onThresholdChange(null)}
-            >
-              <BellOff aria-hidden />
-            </Button>
+            <StopTrackingButton title={release.title} onClick={() => onThresholdChange(null)} />
           </>
         ) : soldOut ? (
-          // Restock alerts aren't built yet, so there's nothing to track.
-          <Button disabled className="min-w-0 flex-1" variant="outline">
-            Sold out
+          // Tracking a sold-out release means waiting for a restock. The alert level is
+          // the lowest, so once it's back the stock alert only fires if it nearly sells out again.
+          <Button
+            className="min-w-0 flex-1"
+            disabled={!canTrack}
+            onClick={() => onThresholdChange(getDefaultThreshold(stock))}
+            aria-label={`Alert on restock of ${release.title}`}
+          >
+            <BellRing aria-hidden />
+            Alert on restock
           </Button>
         ) : (
           <Button
@@ -142,6 +150,14 @@ export function ReleaseCard({ release, threshold, sentAlert, canTrack, onThresho
         </Button>
       </div>
     </article>
+  );
+}
+
+function StopTrackingButton({ title, onClick }: { title: string; onClick: () => void }) {
+  return (
+    <Button variant="outline" size="icon" aria-label={`Stop tracking ${title}`} title="Stop tracking" onClick={onClick}>
+      <BellOff aria-hidden />
+    </Button>
   );
 }
 
