@@ -179,3 +179,25 @@ a.secondary {
     padding: 0.1em 0.4em;
     border-radius: 6px;
 }
+
+/*
+ * Tailwind's reset (added with the redesign foundations) removes the browser's
+ * default heading and form-control styles. Restore them for this page until
+ * the redesigned release list replaces it.
+ */
+.trackItems h2 {
+    font-size: 1.5em;
+    font-weight: 700;
+}
+
+.page button,
+.page select {
+    padding: 2px 8px;
+    border: 1px solid var(--input);
+    border-radius: 4px;
+}
+
+.page button {
+    background-color: var(--secondary);
+    cursor: pointer;
+}
