@@ -1,13 +1,13 @@
 import { db } from "@/lib/db";
-import { scrapeStockPercentage } from "@/lib/scraper";
+import { getReleaseLaunchAt } from "@/lib/launch";
+import { scrapeProductPage, type ProductPage } from "@/lib/scraper";
+import { saveProductDetails } from "@/lib/product-details";
+import { buildStockAlertMessage } from "@/lib/stock";
 import { sendPushNotification } from "@/lib/push";
-import { DateTime } from "luxon";
 
 const MIN_INTERVAL_MINUTES = 1;
 const DEFAULT_MAX_INTERVAL_MINUTES = 240;
 const DEFAULT_INTERVAL_MINUTES = 60;
-const UK_TIMEZONE = "Europe/London";
-const LAUNCH_POLL_START_MINUTES = 17 * 60 + 55;
 const LAUNCH_GRACE_MINUTES = 10;
 const LAUNCH_WINDOW_MINUTES = 60;
 const LAUNCH_INTERVALS = [1, 2, 5] as const;
@@ -46,18 +46,6 @@ async function findDueReleases(now: Date) {
 
 type DueRelease = Awaited<ReturnType<typeof findDueReleases>>[number];
 type StockPoint = { percentage: number; checkedAt: Date };
-
-function getReleaseLaunchAt(releaseDate: Date, preOrderCloseDate: Date | null): Date {
-  // If preOrderCloseDate is set, stock % is not set until this time.
-  if (preOrderCloseDate) {
-    return DateTime.fromJSDate(preOrderCloseDate, { zone: UK_TIMEZONE }).toJSDate();
-  }
-
-  const launchHour = Math.floor(LAUNCH_POLL_START_MINUTES / 60);
-  const launchMinute = LAUNCH_POLL_START_MINUTES % 60;
-  const releaseDay = DateTime.fromJSDate(releaseDate, { zone: UK_TIMEZONE });
-  return releaseDay.set({ hour: launchHour, minute: launchMinute, second: 0, millisecond: 0 }).toJSDate();
-}
 
 function getLaunchIntervalMinutes(launchAt: Date, now: Date): number {
   const elapsedMinutes = Math.max(0, (now.getTime() - launchAt.getTime()) / 60_000);
@@ -187,37 +175,6 @@ function computeFailureBackoffMinutes(consecutiveFailures: number): number {
 
 
 // Keep titles short across browser and mobile notification layouts; the full name belongs in the body.
-function buildStockAlertMessage(releaseName: string, currentPercentage: number): { title: string; body: string } {
-  if (currentPercentage <= 2) {
-    return {
-      title: `Stock alert: ${currentPercentage}%`,
-      body: `${releaseName}: critically low stock at ${currentPercentage}% — act before it's too late!`
-    }
-  }
-  if (currentPercentage <= 5) {
-    return {
-      title: `Stock alert: ${currentPercentage}%`,
-      body: `${releaseName}: only ${currentPercentage}% left in stock — grab it before it sells out.`,
-    };
-  }
-  if (currentPercentage <= 10) {
-    return {
-      title: `Stock alert: ${currentPercentage}%`,
-      body: `${releaseName}: stock is getting low at ${currentPercentage}% — don't wait too long.`,
-    };
-  }
-  if (currentPercentage <= 25) {
-    return {
-      title: `Stock alert: ${currentPercentage}%`,
-      body: `${releaseName}: stock is down to ${currentPercentage}%, but there is still time to decide.`,
-    };
-  }
-  return {
-    title: `Stock alert: ${currentPercentage}%`,
-    body: `${releaseName}: stock has dropped to ${currentPercentage}%, matching the alert you set.`,
-  };
-}
-
 async function notifyEligibleSubscribers(release: DueRelease, currentPercentage: number) {
   const eligible = release.subscriptions.filter(
     (subscription) => subscription.notifiedAt === null && currentPercentage <= subscription.thresholdPercentage,
@@ -234,7 +191,7 @@ async function notifyEligibleSubscribers(release: DueRelease, currentPercentage:
       });
       await db.releaseSubscription.update({
         where: { id: subscription.id },
-        data: { notifiedAt: new Date() },
+        data: { notifiedAt: new Date(), notifiedPercentage: currentPercentage },
       });
       notifiedCount++;
     } catch (err) {
@@ -252,7 +209,7 @@ async function rearmTriggeredSubscribers(releaseId: string, currentPercentage: n
       notifiedAt: { not: null },
       thresholdPercentage: { lt: currentPercentage },
     },
-    data: { notifiedAt: null },
+    data: { notifiedAt: null, notifiedPercentage: null },
   });
 }
 
@@ -261,6 +218,15 @@ async function pollRelease(release: DueRelease, now: Date) {
   const launchAt = getReleaseLaunchAt(release.releaseDate, release?.preOrderCloseDate);
 
   if (now < launchAt) {
+    // Not on sale yet, but the product page already has the cover and price.
+    if (!release.coverUrl || release.pricePence === null) {
+      try {
+        await saveProductDetails(release, await scrapeProductPage(release.url));
+      } catch (err) {
+        console.error(`Failed to fetch product details for release ${release.key}:`, err);
+      }
+    }
+
     await db.releasePollSchedule.upsert({
       where: { releaseId: release.id },
       create: {
@@ -288,9 +254,9 @@ async function pollRelease(release: DueRelease, now: Date) {
 
   const minutesSinceLaunch = (now.getTime() - launchAt.getTime()) / 60_000;
 
-  let currentPercentage: number | null;
+  let page: ProductPage;
   try {
-    currentPercentage = await scrapeStockPercentage(release.url);
+    page = await scrapeProductPage(release.url);
   } catch (err) {
     // Reschedule with backoff instead of leaving the release perpetually "due" and
     // hammering a broken/blocked URL on every cron run.
@@ -306,6 +272,9 @@ async function pollRelease(release: DueRelease, now: Date) {
 
     throw err;
   }
+
+  await saveProductDetails(release, page);
+  const currentPercentage = page.stockPercentage;
 
   if (currentPercentage === null) {
     if (minutesSinceLaunch < LAUNCH_WINDOW_MINUTES) {
