@@ -78,7 +78,7 @@ export function UpdateBanner() {
       aria-describedby="update-body"
       className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/70 p-6"
     >
-      <section className="flex w-full max-w-sm flex-col items-center gap-3 rounded-xl border bg-card p-6 text-center text-card-foreground shadow-lg">
+      <section className="flex w-full max-w-sm flex-col items-center gap-3 rounded-md border bg-card p-6 text-center text-card-foreground shadow-lg">
         <h2 id="update-title" className="m-0 text-lg font-semibold">
           Update available
         </h2>
