@@ -26,6 +26,12 @@ model Release {
   coverUrl            String?
   // Price in pence (GBP), from the store's product page.
   pricePence          Int?
+  // What the card shows, split from the store title when the release is added.
+  // Edit these to fix a title the parser got wrong. When title is empty, the
+  // card splits `name` on the fly instead (releases added before these existed).
+  title               String?
+  catalogue           String?
+  edition             String?
   createdAt           DateTime              @default(now())
   updatedAt           DateTime?             @updatedAt
 

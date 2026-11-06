@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { getReleaseLaunchAt } from "@/lib/launch";
-import { fetchProductPricePence, scrapeProductPage, type ProductPage } from "@/lib/scraper";
+import { scrapeProductPage, type ProductPage } from "@/lib/scraper";
+import { saveProductDetails } from "@/lib/product-details";
 import { buildStockAlertMessage } from "@/lib/stock";
 import { sendPushNotification } from "@/lib/push";
 
@@ -210,31 +211,6 @@ async function rearmTriggeredSubscribers(releaseId: string, currentPercentage: n
     },
     data: { notifiedAt: null, notifiedPercentage: null },
   });
-}
-
-// Saves the cover when it's new or has changed, and fetches the price once per release
-// (prices rarely change and need a second request). Never throws: missing details
-// shouldn't stop a stock check.
-async function saveProductDetails(release: DueRelease, page: Pick<ProductPage, "coverUrl">) {
-  const data: { coverUrl?: string; pricePence?: number } = {};
-  if (page.coverUrl && page.coverUrl !== release.coverUrl) data.coverUrl = page.coverUrl;
-
-  if (release.pricePence === null) {
-    try {
-      const pricePence = await fetchProductPricePence(release.url);
-      if (pricePence !== null) data.pricePence = pricePence;
-    } catch (err) {
-      console.error(`Failed to fetch the price for release ${release.key}:`, err);
-    }
-  }
-
-  if (Object.keys(data).length > 0) {
-    try {
-      await db.release.update({ where: { id: release.id }, data });
-    } catch (err) {
-      console.error(`Failed to save product details for release ${release.key}:`, err);
-    }
-  }
 }
 
 async function pollRelease(release: DueRelease, now: Date) {
