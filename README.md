@@ -39,7 +39,7 @@ The scheduled endpoints accept the secret as `Authorization: Bearer <CRON_SECRET
 | Endpoint | What it does |
 |---|---|
 | `GET /api/poll` | Checks the stock of releases that are due, saves covers and UK prices, and sends alerts. Each release is polled more often while its stock is falling fast. |
-| `GET /api/monitor` | Adds new releases from the store's collections. Run just after the 4pm UK announcement (set the cron-job.org job's time zone to Europe/London). `?dryRun=1` lists what it would add without saving; `?days=30` looks further back than the usual 7 days. |
+| `GET /api/monitor` | Adds new releases from the store's collections, and fills in the cover and price of any release still missing them. Run just after the 4pm UK announcement (set the cron-job.org job's time zone to Europe/London). `?dryRun=1` lists what it would add without saving; `?days=30` looks further back than the usual 7 days. |
 
 ### When the store changes
 

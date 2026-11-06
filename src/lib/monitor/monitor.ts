@@ -1,13 +1,20 @@
 import { DateTime } from "luxon";
 import type { ReleaseType } from "../../../zenstack/models";
 import { db } from "@/lib/db";
+import { saveProductDetails } from "@/lib/product-details";
 import { parseReleaseTitle } from "@/lib/release-title";
+import { scrapeProductPage } from "@/lib/scraper";
 import { MONITOR_CONFIG, type MonitorConfig } from "@/lib/monitor/config";
 
 // Adds new Super Rare Games releases from the store's collections. Run once a
 // day just after the 4pm announcement, from /api/monitor.
 
 const REQUEST_TIMEOUT_MS = 15_000;
+// Releases missing a cover or price filled in per run, a few at a time, so a
+// big backlog can't push the request past the function's time limit. The rest
+// are picked up on the next run.
+const MAX_DETAILS_PER_RUN = 60;
+const DETAILS_CONCURRENCY = 4;
 const REQUEST_HEADERS = {
   "User-Agent": "Mozilla/5.0 (compatible; SuperRareTracker/1.0; +https://superraretracker.app)",
 };
@@ -37,6 +44,13 @@ export type MonitorResult = {
   } & DisplayParts)[];
   /** New products that weren't added, and why. Already-tracked and old products aren't listed. */
   skipped: { handle: string; title: string; reason: string }[];
+  /**
+   * Releases (new or existing) that were missing a cover or price and now have
+   * them. On a dry run, the ones that would be checked.
+   */
+  detailsFilled: { key: string; cover: boolean; price: boolean }[];
+  /** Releases still missing a cover or price after this run (product page gone, or over the per-run limit); on a dry run, how many are missing now. */
+  detailsMissing: number;
   /** Collections that couldn't be read. The others still run. */
   errors: string[];
 };
@@ -136,7 +150,7 @@ export async function runReleaseMonitor({
   config = MONITOR_CONFIG,
   now = new Date(),
 }: { dryRun?: boolean; maxAgeDays?: number; config?: MonitorConfig; now?: Date } = {}): Promise<MonitorResult> {
-  const result: MonitorResult = { dryRun, added: [], skipped: [], errors: [] };
+  const result: MonitorResult = { dryRun, added: [], skipped: [], detailsFilled: [], detailsMissing: 0, errors: [] };
 
   // Every collection, de-duplicated by handle.
   const products = new Map<string, StoreProduct>();
@@ -200,5 +214,47 @@ export async function runReleaseMonitor({
     });
   }
 
+  await fillMissingDetails(result, dryRun);
   return result;
+}
+
+/**
+ * Fills in the cover and price of any release still missing them, including
+ * ones just added. The poller does this on each stock check, but a release
+ * that isn't on sale yet isn't checked again until launch, so this catches it.
+ */
+async function fillMissingDetails(result: MonitorResult, dryRun: boolean) {
+  const missing = await db.release.findMany({
+    where: { OR: [{ coverUrl: null }, { pricePence: null }] },
+    select: { id: true, key: true, url: true, coverUrl: true, pricePence: true },
+    orderBy: { releaseDate: "desc" }, // newest first, the ones people look at
+  });
+  const batch = missing.slice(0, MAX_DETAILS_PER_RUN);
+
+  if (dryRun) {
+    result.detailsFilled = batch.map((release) => ({ key: release.key, cover: !release.coverUrl, price: release.pricePence === null }));
+    result.detailsMissing = missing.length;
+    return;
+  }
+
+  let stillMissing = missing.length - batch.length;
+  for (let i = 0; i < batch.length; i += DETAILS_CONCURRENCY) {
+    await Promise.all(
+      batch.slice(i, i + DETAILS_CONCURRENCY).map(async (release) => {
+        try {
+          // The page is only needed for the cover; the price has its own request.
+          const page = release.coverUrl ? { coverUrl: null } : await scrapeProductPage(release.url);
+          const saved = await saveProductDetails(release, page);
+          const cover = saved.coverUrl !== undefined;
+          const price = saved.pricePence !== undefined;
+          if (cover || price) result.detailsFilled.push({ key: release.key, cover, price });
+          if ((!release.coverUrl && !cover) || (release.pricePence === null && !price)) stillMissing++;
+        } catch (err) {
+          console.error(`Failed to fill in details for release ${release.key}:`, err);
+          stillMissing++;
+        }
+      }),
+    );
+  }
+  result.detailsMissing = stillMissing;
 }
