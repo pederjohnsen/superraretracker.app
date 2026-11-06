@@ -5,7 +5,7 @@ import type { Release } from "../../zenstack/models";
 import type { ParsedReleaseTitle } from "@/lib/release-title";
 
 // Dates arrive as ISO strings after JSON serialization, not Date instances.
-export type ReleaseDto = Omit<Release, "releaseDate" | "preOrderCloseDate" | "createdAt" | "updatedAt"> &
+export type ReleaseDto = Omit<Release, "releaseDate" | "preOrderCloseDate" | "createdAt" | "updatedAt" | "title" | "catalogue" | "edition"> &
   ParsedReleaseTitle & {
     releaseDate: string;
     preOrderCloseDate: string | null;

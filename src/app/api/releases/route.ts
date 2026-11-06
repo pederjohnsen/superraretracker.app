@@ -16,10 +16,13 @@ export async function GET() {
   return NextResponse.json(
     releases.map(({ stockChecks, ...release }) => {
       const stockLiveAt = getStockLiveAt(release.releaseDate, release.preOrderCloseDate);
+      const parsed = parseReleaseTitle(release.name);
       return {
         ...release,
-        // The store title split into the parts the cards show.
-        ...parseReleaseTitle(release.name),
+        // The parts the card shows: saved ones when set (they can be corrected
+        // by hand), otherwise split from the store title.
+        ...parsed,
+        ...(release.title && { title: release.title, catalogue: release.catalogue, edition: release.edition }),
         lastCheckedAt: stockChecks[0]?.checkedAt ?? null,
         // Only while still ahead: "Stock goes live 12 Nov, 18:00".
         stockLiveAt: stockLiveAt > now ? stockLiveAt : null,

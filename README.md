@@ -39,6 +39,13 @@ The scheduled endpoints accept the secret as `Authorization: Bearer <CRON_SECRET
 | Endpoint | What it does |
 |---|---|
 | `GET /api/poll` | Checks the stock of releases that are due, saves covers and UK prices, and sends alerts. Each release is polled more often while its stock is falling fast. |
+| `GET /api/monitor` | Adds new releases from the store's collections. Run just after the 4pm UK announcement (set the cron-job.org job's time zone to Europe/London). `?dryRun=1` lists what it would add without saving; `?days=30` looks further back than the usual 7 days. |
+
+### When the store changes
+
+Everything the monitor assumes about the store is in `src/lib/monitor/config.ts`: the collections it reads, which product types count as releases, how it tells the platform, what it strips from titles, and how it finds the release date. Edit the rules there, then check them with `?dryRun=1`.
+
+New releases are saved with their card title, catalogue number and edition already split out (`title`, `catalogue`, `edition` on `Release`). If one comes out wrong, correct those columns and it stays corrected. Releases without a saved `title` are split from `name` when the list loads.
 
 ## How it fits together
 
