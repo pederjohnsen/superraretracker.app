@@ -1,6 +1,7 @@
 // Splits a Super Rare Games store title into the parts the release cards show,
 // e.g. "[Special Edition] SE#03: Haste" -> edition "Special Edition",
-// catalogue "SE#03", title "Haste".
+// catalogue "SE#03", title "Haste". The platform comes from the release's
+// `type`, not the title (see src/lib/platform.ts).
 
 export type ParsedReleaseTitle = {
   title: string;
@@ -17,7 +18,6 @@ const EDITION = /^\[([^\]]+)\]\s*/; // [Special Edition]
 const CATALOGUE = /^([A-Za-z0-9]+(?: [A-Za-z]+)?\s?#\d+)\s*[:\-–]\s*/; // SRG#163: / PS5 Bundle #8: / PS5#31 -
 const REPRINT = /\s*\[REPRINT\]\s*$/i;
 const PATCH_REQUIRED = /\s*\(PATCH REQUIRED\)\s*$/i;
-const PLATFORM_SUFFIXES = [/\s*\((?:Switch 2|Switch|PS5|PS4|Xbox(?: Series X\|S)?)\)\s*$/i, /\s*-\s*Nintendo Switch 2 Edition\s*$/i];
 
 // "Sw2#02" -> "SW2#02", "PS5 #22" -> "PS5#22", keeps "PS5 Bundle #8".
 function tidyCatalogue(raw: string): string {
@@ -43,7 +43,6 @@ export function parseReleaseTitle(storeTitle: string): ParsedReleaseTitle {
   rest = rest.replace(REPRINT, "");
   const patchRequired = PATCH_REQUIRED.test(rest);
   rest = rest.replace(PATCH_REQUIRED, "");
-  for (const suffix of PLATFORM_SUFFIXES) rest = rest.replace(suffix, "");
 
   if (!edition && catalogue && /(?:^|\s)(?:PB|Bundle)\s?#/i.test(catalogue)) edition = "Bundle";
 

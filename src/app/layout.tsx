@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next"
+import { Heart } from "lucide-react";
+import { AppHeader } from "@/components/AppHeader";
 import { UpdateBanner } from "@/components/UpdateBanner";
-import { ThemeToggle } from "@/components/ThemeToggle";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { getSavedTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 import "./globals.css";
-import Link from "next/link";
 
 const geistSans = Geist({
     variable: "--font-geist-sans",
@@ -39,20 +39,23 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
                     content="SuperRareTracker"
                 />
             </head>
-            <body>
+            <body className="flex min-h-full flex-col">
                 <TooltipProvider>
-                    {/* Temporary spot until the redesigned header (next PR) takes it. */}
-                    <div className="fixed top-[calc(env(safe-area-inset-top)+0.75rem)] right-3 z-50">
-                        <ThemeToggle saved={theme} />
-                    </div>
+                    <AppHeader savedTheme={theme} />
                     {children}
                     <UpdateBanner />
-                    <footer>
-                        <p>Made with &hearts; by <Link href="https://pederjohnsen.com" target="_blank">Peder Johnsen</Link></p>
+                    <footer className="border-t pb-[env(safe-area-inset-bottom)]">
+                        <div className="mx-auto flex max-w-6xl flex-wrap justify-between gap-x-6 gap-y-1 px-4 py-4 text-xs text-muted-foreground">
+                            <p className="m-0">
+                                Made with <Heart role="img" aria-label="love" className="inline size-3 fill-current align-[-1px] text-brand-foreground" /> by{" "}
+                                <a href="https://pederjohnsen.com" target="_blank" rel="noopener" className="text-foreground underline underline-offset-2">Peder Johnsen</a>
+                            </p>
+                            <p className="m-0">Fan-made tracker, not affiliated with Super Rare Games.</p>
+                        </div>
                     </footer>
                 </TooltipProvider>
+                <Analytics />
             </body>
-            <Analytics />
         </html>
     );
 }

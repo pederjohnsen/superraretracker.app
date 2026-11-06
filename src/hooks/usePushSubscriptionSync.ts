@@ -6,6 +6,10 @@ const SYNC_DEBOUNCE_MS = 5_000;
 
 type SubscriptionMap = Record<string, number>; // releaseId -> thresholdPercentage
 
+/** When a release's alert last fired, and the stock % it fired at. */
+export type SentAlert = { sentAt: string; percentage: number | null };
+type SentAlertMap = Record<string, SentAlert>; // releaseId -> last alert sent
+
 const CLIENT_ID_STORAGE_KEY = "superraretracker.clientId";
 
 function getClientId(): string {
@@ -30,6 +34,7 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
 // idle period instead of firing one request per checkbox/select change.
 export function usePushSubscriptionSync(notificationPermission: NotificationPermission) {
   const [subscriptions, setSubscriptions] = useState<SubscriptionMap>({});
+  const [sentAlerts, setSentAlerts] = useState<SentAlertMap>({});
   const [isReady, setIsReady] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
@@ -78,15 +83,25 @@ export function usePushSubscriptionSync(notificationPermission: NotificationPerm
         });
         const res = await fetch(`/api/subscriptions?${params.toString()}`);
         if (!res.ok) throw new Error(`Failed to load subscriptions (${res.status})`);
-        const data: { subscriptions: { releaseId: string; thresholdPercentage: number }[] } = await res.json();
+        const data: {
+          subscriptions: {
+            releaseId: string;
+            thresholdPercentage: number;
+            notifiedAt: string | null;
+            notifiedPercentage: number | null;
+          }[];
+        } = await res.json();
 
         if (cancelled) return;
         const hydrated: SubscriptionMap = {};
+        const sent: SentAlertMap = {};
         for (const sub of data.subscriptions) {
           hydrated[sub.releaseId] = sub.thresholdPercentage;
+          if (sub.notifiedAt) sent[sub.releaseId] = { sentAt: sub.notifiedAt, percentage: sub.notifiedPercentage };
         }
         hasHydratedRef.current = true;
         setSubscriptions(hydrated);
+        setSentAlerts(sent);
         setIsReady(true);
       } catch (err) {
         if (!cancelled) {
@@ -151,6 +166,13 @@ export function usePushSubscriptionSync(notificationPermission: NotificationPerm
 
   const setReleaseSubscription = useCallback(
     (releaseId: string, thresholdPercentage: number | null) => {
+      // A new level (or untracking) re-arms the alert on the server, so forget the last one sent.
+      setSentAlerts((prev) => {
+        if (!(releaseId in prev)) return prev;
+        const next = { ...prev };
+        delete next[releaseId];
+        return next;
+      });
       setSubscriptions((prev) => {
         const next = { ...prev };
         if (thresholdPercentage === null) {
@@ -169,5 +191,5 @@ export function usePushSubscriptionSync(notificationPermission: NotificationPerm
     [scheduleSync],
   );
 
-  return { subscriptions, setReleaseSubscription, isReady, error };
+  return { subscriptions, sentAlerts, setReleaseSubscription, isReady, error };
 }

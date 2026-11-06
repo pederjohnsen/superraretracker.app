@@ -195,34 +195,4 @@
             transition: none !important;
         }
     }
-
-    /*
-     * Existing page layout, kept until the redesigned pages replace it.
-     * It sits in the base layer so Tailwind utilities can override it.
-     */
-    html,
-    body {
-        max-width: 100vw;
-        overflow-x: hidden;
-    }
-
-    body {
-        min-height: 100%;
-        display: flex;
-        flex-direction: column;
-    }
-
-    footer {
-        display: flex;
-        flex: 1;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        padding: 60px;
-    }
-
-    a {
-        color: inherit;
-        text-decoration: none;
-    }
 }
