@@ -85,3 +85,21 @@ export async function fetchProductPricePence(url: string): Promise<number | null
     ? product.price
     : null;
 }
+
+/** The product's tags from Shopify's product JSON. The game's name is usually one of them ("Wax Heads"). */
+export async function fetchProductTags(url: string): Promise<string[]> {
+  const productUrl = new URL(url);
+  productUrl.search = "";
+  productUrl.pathname = `${productUrl.pathname.replace(/\/$/, "")}.js`;
+
+  const response = await fetch(productUrl, {
+    headers: REQUEST_HEADERS,
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+  });
+  if (!response.ok) {
+    throw new Error(`Request to ${productUrl} failed with status ${response.status}`);
+  }
+
+  const product = (await response.json()) as { tags?: unknown };
+  return Array.isArray(product.tags) ? product.tags.filter((tag): tag is string => typeof tag === "string") : [];
+}
