@@ -20,8 +20,11 @@ self.addEventListener("push", (event) => {
     const title = payload.title || "Super Rare Tracker";
     const options = {
         body: payload.body,
+        // The logo, shown large beside the alert on Android and desktop.
         icon: "/icon-192x192.png",
-        badge: "/icon-192x192.png",
+        // Android's small status-bar icon: it only uses the image's transparency,
+        // so this is the lettering in white on transparent, not the coloured square.
+        badge: "/badge-96x96.png",
         data: { url: payload.url || "/" },
     };
 

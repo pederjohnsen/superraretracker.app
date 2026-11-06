@@ -20,6 +20,21 @@ export default function manifest(): MetadataRoute.Manifest {
                 sizes: "512x512",
                 type: "image/png",
             },
+            // For Android launchers, which crop icons to their own shape. Full-bleed
+            // background with the lettering inside the central safe zone, so Chrome
+            // uses it instead of shrinking the square icon onto a white circle.
+            {
+                src: "/icon-maskable-192x192.png",
+                sizes: "192x192",
+                type: "image/png",
+                purpose: "maskable",
+            },
+            {
+                src: "/icon-maskable-512x512.png",
+                sizes: "512x512",
+                type: "image/png",
+                purpose: "maskable",
+            },
         ],
     };
 }
