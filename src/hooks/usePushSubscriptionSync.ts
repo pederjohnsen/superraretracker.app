@@ -191,5 +191,32 @@ export function usePushSubscriptionSync(notificationPermission: NotificationPerm
     [scheduleSync],
   );
 
-  return { subscriptions, sentAlerts, setReleaseSubscription, isReady, error };
+  /**
+   * Sends a real push to this device through the server, the same way stock
+   * alerts travel. Throws with a message to show when it can't.
+   */
+  const sendTestAlert = useCallback(async () => {
+    const pushSubscription = pushSubscriptionRef.current;
+    const clientId = clientIdRef.current;
+    const json = pushSubscription?.toJSON();
+    if (!pushSubscription || !clientId || !json?.keys?.p256dh || !json.keys.auth) {
+      throw new Error("Still setting up alerts on this device. Try again in a moment.");
+    }
+
+    const res = await fetch("/api/subscriptions/test", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clientId,
+        endpoint: pushSubscription.endpoint,
+        keys: { p256dh: json.keys.p256dh, auth: json.keys.auth },
+      }),
+    });
+    if (!res.ok) {
+      const data: { error?: string } = await res.json().catch(() => ({}));
+      throw new Error(data.error ?? "Couldn’t send a test alert. Check your device’s notification settings, then try again.");
+    }
+  }, []);
+
+  return { subscriptions, sentAlerts, setReleaseSubscription, sendTestAlert, isReady, error };
 }
