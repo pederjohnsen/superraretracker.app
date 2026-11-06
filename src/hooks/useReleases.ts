@@ -15,6 +15,8 @@ export type ReleaseDto = Omit<Release, "releaseDate" | "preOrderCloseDate" | "cr
     lastCheckedAt: string | null;
     /** When stock goes on sale, only while that's still ahead. */
     stockLiveAt: string | null;
+    /** On sale, but the store shows no stock bar for this product, so there's nothing to alert on. */
+    stockNotShown: boolean;
   };
 
 export function useReleases() {

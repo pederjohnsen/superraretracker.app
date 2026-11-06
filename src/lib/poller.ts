@@ -10,6 +10,9 @@ const DEFAULT_MAX_INTERVAL_MINUTES = 240;
 const DEFAULT_INTERVAL_MINUTES = 60;
 const LAUNCH_GRACE_MINUTES = 10;
 const LAUNCH_WINDOW_MINUTES = 60;
+// Some products never show a stock bar (the Wax Heads vinyl bundle, for one).
+// Check now and then in case one appears, without treating it as a failure.
+const NO_STOCK_BAR_INTERVAL_MINUTES = 360;
 const LAUNCH_INTERVALS = [1, 2, 5] as const;
 // During active selling, poll several times before the projected sellout time.
 const SELLOUT_LOOKAHEAD_FRACTION = 0.15;
@@ -314,7 +317,25 @@ async function pollRelease(release: DueRelease, now: Date) {
       };
     }
 
-    throw new Error(`No stock percentage found`);
+    // Well past launch and still no bar: the store doesn't show stock for this
+    // product. Clear any old reading so the card says so, and look again later.
+    const nextPollAt = new Date(now.getTime() + NO_STOCK_BAR_INTERVAL_MINUTES * 60_000);
+    await db.release.update({ where: { id: release.id }, data: { lastStockPercentage: null } });
+    await db.releasePollSchedule.upsert({
+      where: { releaseId: release.id },
+      create: { releaseId: release.id, nextPollAt, intervalMinutes: NO_STOCK_BAR_INTERVAL_MINUTES, lastPolledAt: now, consecutiveFailures: 0 },
+      update: { nextPollAt, intervalMinutes: NO_STOCK_BAR_INTERVAL_MINUTES, lastPolledAt: now, consecutiveFailures: 0 },
+    });
+
+    return {
+      releaseId: release.id,
+      key: release.key,
+      success: true as const,
+      stockAvailable: false as const,
+      reason: "no-stock-bar" as const,
+      intervalMinutes: NO_STOCK_BAR_INTERVAL_MINUTES,
+      nextPollAt: nextPollAt.toISOString(),
+    };
   }
 
   const previousCheck = release.stockChecks[0] as StockPoint | undefined;

@@ -73,6 +73,7 @@ export function ReleaseCard({ release, threshold, sentAlert, canTrack, onThresho
         releaseTitle={release.title}
         checkedAt={release.lastCheckedAt}
         liveAt={release.stockLiveAt}
+        stockNotShown={release.stockNotShown}
         threshold={threshold}
         sentAlert={sentAlert}
         now={now}
@@ -128,7 +129,8 @@ export function ReleaseCard({ release, threshold, sentAlert, canTrack, onThresho
         ) : (
           <Button
             className="min-w-0 flex-1"
-            disabled={!canTrack}
+            // With no stock level on the store, no alert could ever fire.
+            disabled={!canTrack || release.stockNotShown}
             onClick={() => onThresholdChange(getDefaultThreshold(stock))}
             // Starts with the visible word, so voice control ("click Track") still works.
             aria-label={`Track ${release.title}`}

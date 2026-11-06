@@ -36,6 +36,8 @@ type StockMeterProps = {
   checkedAt: string | null;
   /** When stock goes on sale, while that's still ahead. */
   liveAt: string | null;
+  /** The store shows no stock bar for this product. */
+  stockNotShown?: boolean;
   /** The alert level, when tracked. */
   threshold?: number;
   /** The last alert sent for this release, when tracked. */
@@ -49,7 +51,7 @@ type StockMeterProps = {
  * marker when tracked, and a one-line caption that never changes the height.
  * The tier comes from the same function as the push notification wording.
  */
-export function StockMeter({ stock, releaseTitle, checkedAt, liveAt, threshold, sentAlert, now }: StockMeterProps) {
+export function StockMeter({ stock, releaseTitle, checkedAt, liveAt, stockNotShown, threshold, sentAlert, now }: StockMeterProps) {
   const notOnSale = liveAt !== null;
   const tier = notOnSale ? "unknown" : getStockTier(stock);
   const { icon: Icon, label: labelClass, bar } = notOnSale
@@ -100,6 +102,7 @@ export function StockMeter({ stock, releaseTitle, checkedAt, liveAt, threshold, 
         checkedAt={checkedAt}
         sentAlert={threshold !== undefined ? sentAlert : undefined}
         watchingForRestock={threshold !== undefined && tier === "sold-out"}
+        stockNotShown={!liveAt && stock === null && stockNotShown === true}
         now={now}
       />
     </div>
@@ -112,7 +115,8 @@ function Caption({
   sentAlert,
   now,
   watchingForRestock,
-}: Pick<StockMeterProps, "liveAt" | "checkedAt" | "sentAlert" | "now"> & { watchingForRestock: boolean }) {
+  stockNotShown,
+}: Pick<StockMeterProps, "liveAt" | "checkedAt" | "sentAlert" | "now"> & { watchingForRestock: boolean; stockNotShown: boolean }) {
   let content: ReactNode = null;
   let subtle = false;
 
@@ -122,6 +126,8 @@ function Caption({
         Stock goes live <time dateTime={liveAt} title={formatFullDateTime(liveAt)}>{formatDayTime(liveAt)}</time>
       </>
     );
+  } else if (stockNotShown) {
+    content = "The store doesn’t show stock for this one";
   } else if (watchingForRestock && now !== null) {
     content = (
       <>
