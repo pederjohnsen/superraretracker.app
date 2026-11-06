@@ -40,7 +40,7 @@ export function ReleaseCard({ release, threshold, sentAlert, canTrack, onThresho
     <article
       aria-labelledby={headingId}
       className={cn(
-        "flex flex-1 flex-col gap-3 rounded-xl border bg-card p-3 text-card-foreground",
+        "flex flex-1 flex-col gap-3 rounded-md border bg-card p-3 text-card-foreground",
         tracked && "border-primary/60",
       )}
     >
