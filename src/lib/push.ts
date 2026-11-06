@@ -1,6 +1,6 @@
 import {
-  buildPushPayload,
-  type PushMessage,
+  encryptNotification,
+  vapidHeaders,
   type PushSubscription as WebPushSubscription,
   type VapidKeys,
 } from "@block65/webcrypto-web-push";
@@ -42,16 +42,24 @@ export async function sendPushNotification(
     keys: { p256dh: subscription.p256dh, auth: subscription.auth },
   };
 
-  const message: PushMessage = {
-    data: JSON.stringify(payload),
-    options: {
-      urgency: "high",
-      ttl: 60,
+  // Not the library's buildPushPayload: it pads every message to the 4096-byte
+  // maximum, and Mozilla's push service (Firefox) rejects bodies that size with
+  // a 413. Unpadded, an alert is a few hundred bytes, which every service accepts.
+  const body = await encryptNotification(webPushSubscription, new TextEncoder().encode(JSON.stringify(payload)), {
+    pad: false,
+  });
+  const { headers } = await vapidHeaders(webPushSubscription, vapid);
+  const res = await fetch(subscription.endpoint, {
+    method: "POST",
+    headers: {
+      ...headers,
+      TTL: "60",
+      Urgency: "high",
+      "Content-Encoding": "aes128gcm",
+      "Content-Type": "application/octet-stream",
     },
-  };
-
-  const requestInit = await buildPushPayload(message, webPushSubscription, vapid);
-  const res = await fetch(subscription.endpoint, requestInit);
+    body,
+  });
 
   if (!res.ok) {
     if (res.status === 404 || res.status === 410) {
