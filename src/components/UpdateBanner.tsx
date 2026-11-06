@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import styles from "./UpdateBanner.module.css";
+import { RefreshCw } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 const CHECK_INTERVAL_MS = 60_000;
 const currentVersion = process.env.NEXT_PUBLIC_APP_VERSION ?? "development";
@@ -70,13 +71,25 @@ export function UpdateBanner() {
   if (!updateAvailable) return null;
 
   return (
-    <div className={styles.backdrop} role="dialog" aria-modal="true" aria-labelledby="update-title">
-      <section className={styles.modal}>
-        <h2 id="update-title">Update available</h2>
-        <p>A new version of SuperRareTracker is ready. Update now to continue.</p>
-        <button type="button" onClick={() => window.location.reload()}>
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="update-title"
+      aria-describedby="update-body"
+      className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/70 p-6"
+    >
+      <section className="flex w-full max-w-sm flex-col items-center gap-3 rounded-xl border bg-card p-6 text-center text-card-foreground shadow-lg">
+        <h2 id="update-title" className="m-0 text-lg font-semibold">
+          Update available
+        </h2>
+        <p id="update-body" className="m-0 text-sm text-muted-foreground">
+          A new version of Super Rare Tracker is ready. Update now to carry on.
+        </p>
+        {/* The only way forward, so it takes focus. */}
+        <Button autoFocus className="mt-2 w-full px-4" onClick={() => window.location.reload()}>
+          <RefreshCw aria-hidden />
           Update now
-        </button>
+        </Button>
       </section>
     </div>
   );

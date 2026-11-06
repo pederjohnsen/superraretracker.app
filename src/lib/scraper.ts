@@ -1,5 +1,4 @@
 import * as cheerio from "cheerio";
-import isNaN from "lodash/isNaN";
 
 const STOCK_BAR_SELECTOR = ".stock-bar";
 const REQUEST_TIMEOUT_MS = 10_000;
@@ -43,7 +42,7 @@ function readStockPercentage($: cheerio.CheerioAPI): number | null {
   if (!width.trim()) return null;
 
   const stockPercentage = Number(width.replace("%", "").trim());
-  return isNaN(stockPercentage) ? null : stockPercentage;
+  return Number.isNaN(stockPercentage) ? null : stockPercentage;
 }
 
 function readCoverUrl($: cheerio.CheerioAPI): string | null {
