@@ -5,6 +5,7 @@ import Image from "next/image";
 import styles from "./page.module.css";
 import { useReleases } from "@/hooks/useReleases";
 import { usePushSubscriptionSync } from "@/hooks/usePushSubscriptionSync";
+import { getDefaultThreshold } from "@/lib/stock";
 
 // The Notification API has no change event, so there's nothing to subscribe to -
 // we just re-read the current permission whenever the component re-renders.
@@ -42,14 +43,6 @@ function getServerTypeFilter(): string {
 function setStoredTypeFilter(typeFilter: string) {
   window.localStorage.setItem(TYPE_FILTER_STORAGE_KEY, typeFilter);
   typeFilterListeners.forEach((listener) => listener());
-}
-
-const THRESHOLD_OPTIONS = [50, 40, 30, 25, 20, 15, 10, 5, 2];
-
-// Unknown stock means every threshold is valid, so start at the highest option.
-function getDefaultThreshold(currentPercentage: number | null): number {
-  if (currentPercentage === null) return THRESHOLD_OPTIONS[0];
-  return THRESHOLD_OPTIONS.find((option) => option <= currentPercentage) ?? THRESHOLD_OPTIONS[THRESHOLD_OPTIONS.length - 1];
 }
 
 export default function Home() {

@@ -2,14 +2,20 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { Release } from "../../zenstack/models";
+import type { ParsedReleaseTitle } from "@/lib/release-title";
 
 // Dates arrive as ISO strings after JSON serialization, not Date instances.
-type ReleaseDto = Omit<Release, "releaseDate" | "preOrderCloseDate" | "createdAt" | "updatedAt"> & {
-  releaseDate: string;
-  preOrderCloseDate: string | null;
-  createdAt: string;
-  updatedAt: string | null;
-};
+export type ReleaseDto = Omit<Release, "releaseDate" | "preOrderCloseDate" | "createdAt" | "updatedAt"> &
+  ParsedReleaseTitle & {
+    releaseDate: string;
+    preOrderCloseDate: string | null;
+    createdAt: string;
+    updatedAt: string | null;
+    /** When stock was last read successfully, or null if never. */
+    lastCheckedAt: string | null;
+    /** When stock goes on sale, only while that's still ahead. */
+    stockLiveAt: string | null;
+  };
 
 export function useReleases() {
   const [releases, setReleases] = useState<ReleaseDto[]>([]);
