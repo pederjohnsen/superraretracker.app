@@ -170,7 +170,7 @@ function ReleaseGridSkeleton() {
   return (
     <ul aria-busy="true" aria-label="Loading releases" className="m-0 grid list-none gap-3 p-0 sm:grid-cols-2 lg:grid-cols-3">
       {Array.from({ length: 6 }, (_, index) => (
-        <li key={index} className="flex h-[228px] gap-3 rounded-xl border bg-card p-3 sm:h-[212px]">
+        <li key={index} className="flex h-[228px] gap-3 rounded-md border bg-card p-3 sm:h-[212px]">
           <div className="aspect-[3/4] w-24 shrink-0 animate-pulse rounded-md bg-muted motion-reduce:animate-none" />
           <div className="flex flex-1 flex-col gap-2 pt-1">
             <div className="h-3 w-1/3 animate-pulse rounded bg-muted motion-reduce:animate-none" />
