@@ -51,6 +51,10 @@ export function ThemeToggle({ saved }: { saved?: Theme }) {
         root.classList.remove("light", "dark");
         root.classList.add(next);
         document.cookie = `theme=${next}; path=/; max-age=${ONE_YEAR_SECONDS}; samesite=lax`;
+        // Keep the browser bar in step: one theme-color, matching the page background.
+        const metas = document.querySelectorAll('meta[name="theme-color"]');
+        metas.forEach((meta, index) => (index === 0 ? meta.removeAttribute("media") : meta.remove()));
+        metas[0]?.setAttribute("content", getComputedStyle(document.body).backgroundColor);
         setTheme(next);
     }
 

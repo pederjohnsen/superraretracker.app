@@ -1,36 +1,49 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Super Rare Tracker
 
-## Getting Started
+Stock alerts for [Super Rare Games](https://superraregames.com) releases: <https://www.superraretracker.app>
 
-First, run the development server:
+People install the web app, turn on notifications, track a release and choose a stock level (50% down to 2%). A scheduled poller reads each release's stock bar from the store and sends a push notification when stock drops to that level.
+
+## Stack
+
+- Next.js 16 (App Router) and React 19, deployed on Vercel
+- Tailwind CSS v4 with shadcn/ui components (`src/components/ui`)
+- ZenStack v3 on Postgres (`zenstack/schema.zmodel`)
+- cheerio for scraping, Web Push for notifications
+
+## Getting started
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
+pnpm install
+pnpm db:push   # create or update the tables from zenstack/schema.zmodel
 pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+`pnpm build` runs `zen generate` first; the generated `zenstack/*.ts` files aren't committed.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Environment variables
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Variable | Used for |
+|---|---|
+| `DATABASE_URL` | Postgres connection (pooled) |
+| `DATABASE_URL_UNPOOLED` | Direct connection, for `pnpm db:push` |
+| `WEB_PUSH_VAPID_PUBLIC_KEY`, `WEB_PUSH_VAPID_PRIVATE_KEY` | Signing push notifications |
+| `NEXT_PUBLIC_WEB_PUSH_VAPID_PUBLIC_KEY` | The same public key, for subscribing in the browser |
+| `WEB_PUSH_VAPID_SUBJECT` | Contact for push services (defaults to `mailto:admin@superraretracker.app`) |
+| `CRON_SECRET` | Protects the scheduled endpoints |
 
-## Learn More
+## Scheduled jobs
 
-To learn more about Next.js, take a look at the following resources:
+The scheduled endpoints accept the secret as `Authorization: Bearer <CRON_SECRET>` or `?secret=<CRON_SECRET>`, and are called from cron-job.org.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+| Endpoint | What it does |
+|---|---|
+| `GET /api/poll` | Checks the stock of releases that are due, saves covers and UK prices, and sends alerts. Each release is polled more often while its stock is falling fast. |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## How it fits together
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- **Setup screen** (`src/components/SetupGate.tsx`): the release list only opens once notifications are on. The steps depend on the device: iPhone and iPad add the app to the Home Screen, Android installs it, computers go straight to notifications.
+- **Release list** (`src/app/page.tsx`): search, platform, sort and "Tracked only" in a bar pinned to the top (a bottom sheet on phones), and a card per release.
+- **Stock tiers** (`src/lib/stock.ts`): one function gives both the card label and the notification wording, so they always agree.
+- **Store titles** (`src/lib/release-title.ts`): "[Special Edition] SE#03: Haste" is split into edition, catalogue number and title. The platform comes from the release's `type`.
+- **Theme**: light or dark, following the device until the person picks one; the choice is saved in a `theme` cookie so the server renders it on first paint.
