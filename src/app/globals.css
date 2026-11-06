@@ -1,60 +1,228 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
 
-:root {
-    --background: #ffffff;
-    --foreground: #171717;
-}
+/*
+ * Super Rare Tracker design tokens (see the design system).
+ * Light values live on :root. Dark values apply with a saved `.dark` class,
+ * or on a first visit (no theme cookie, so no class on <html>) when the
+ * device is in dark mode. A saved `.light` class always wins.
+ */
 
-@media (prefers-color-scheme: dark) {
-    :root {
-        --background: #0a0a0a;
-        --foreground: #ededed;
+/* `dark:` utilities follow the same rule as the tokens. */
+@custom-variant dark {
+    &:where(.dark, .dark *) {
+        @slot;
+    }
+    @media (prefers-color-scheme: dark) {
+        &:where(:root:not(.light), :root:not(.light) *) {
+            @slot;
+        }
     }
 }
 
-html {
-    height: 100%;
+:root {
+    color-scheme: light;
+    --radius: 0.625rem;
+    --background: #ffffff;
+    --foreground: #09090b;
+    --card: #ffffff;
+    --card-foreground: #09090b;
+    --popover: #ffffff;
+    --popover-foreground: #09090b;
+    --primary: #dc2626;
+    --primary-foreground: #ffffff;
+    --secondary: #f4f4f5;
+    --secondary-foreground: #18181b;
+    --muted: #f4f4f5;
+    --muted-foreground: #52525b;
+    --accent: #f4f4f5;
+    --accent-foreground: #18181b;
+    --destructive: #dc2626;
+    --border: #e4e4e7;
+    --input: #71717a;
+    --ring: #1d4ed8;
+    --stock-ok: #2563eb;
+    --stock-ok-foreground: #1d4ed8;
+    --stock-warn: #b45309;
+    --stock-low: #dc2626;
+    --stock-low-foreground: #b91c1c;
+    --stock-out: #a1a1aa;
+    --success: #15803d;
+    --brand-foreground: #b91c1c;
+    --subtle-foreground: #3f3f46;
+    --switch-off: #a1a1aa;
+    --marker: #09090b;
+    --link: #b91c1c;
+    --placeholder: #71717a;
 }
 
-html,
-body {
-    max-width: 100vw;
-    overflow-x: hidden;
+.dark {
+    color-scheme: dark;
+    --background: #09090b;
+    --foreground: #fafafa;
+    --card: #111113;
+    --card-foreground: #fafafa;
+    --popover: #18181b;
+    --popover-foreground: #fafafa;
+    --secondary: #27272a;
+    --secondary-foreground: #fafafa;
+    --muted: #1c1c1f;
+    --muted-foreground: #a1a1aa;
+    --accent: #27272a;
+    --accent-foreground: #fafafa;
+    --destructive: #f87171;
+    --border: #27272a;
+    --ring: #fcd34d;
+    --stock-ok: #7aa2ff;
+    --stock-ok-foreground: #a9c4ff;
+    --stock-warn: #f5b547;
+    --stock-low: #ff6b57;
+    --stock-low-foreground: #ff8a75;
+    --stock-out: #52525b;
+    --success: #7ad7a6;
+    --brand-foreground: #fca5a5;
+    --subtle-foreground: #d4d4d8;
+    --switch-off: #52525b;
+    --marker: #ffffff;
+    --link: #fca5a5;
+    --placeholder: #8e8e98;
 }
 
-body {
-    min-height: 100%;
-    display: flex;
-    flex-direction: column;
-    color: var(--foreground);
-    background: var(--background);
-    font-family: Arial, Helvetica, sans-serif;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-}
-
-footer {
-    display: flex;
-    flex: 1;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 60px;
-}
-
-* {
-    box-sizing: border-box;
-    padding: 0;
-    margin: 0;
-}
-
-a {
-    color: inherit;
-    text-decoration: none;
-}
-
+/* Keep in sync with .dark above. */
 @media (prefers-color-scheme: dark) {
-    html {
+    :root:not(.light) {
         color-scheme: dark;
+        --background: #09090b;
+        --foreground: #fafafa;
+        --card: #111113;
+        --card-foreground: #fafafa;
+        --popover: #18181b;
+        --popover-foreground: #fafafa;
+        --secondary: #27272a;
+        --secondary-foreground: #fafafa;
+        --muted: #1c1c1f;
+        --muted-foreground: #a1a1aa;
+        --accent: #27272a;
+        --accent-foreground: #fafafa;
+        --destructive: #f87171;
+        --border: #27272a;
+        --ring: #fcd34d;
+        --stock-ok: #7aa2ff;
+        --stock-ok-foreground: #a9c4ff;
+        --stock-warn: #f5b547;
+        --stock-low: #ff6b57;
+        --stock-low-foreground: #ff8a75;
+        --stock-out: #52525b;
+        --success: #7ad7a6;
+        --brand-foreground: #fca5a5;
+        --subtle-foreground: #d4d4d8;
+        --switch-off: #52525b;
+        --marker: #ffffff;
+        --link: #fca5a5;
+        --placeholder: #8e8e98;
+    }
+}
+
+@theme inline {
+    --font-sans: var(--font-geist-sans);
+    --font-mono: var(--font-geist-mono);
+    --font-heading: var(--font-geist-sans);
+    --radius-sm: calc(var(--radius) * 0.6);
+    --radius-md: calc(var(--radius) * 0.8);
+    --radius-lg: var(--radius);
+    --radius-xl: calc(var(--radius) * 1.4);
+    --radius-2xl: calc(var(--radius) * 1.8);
+    --radius-3xl: calc(var(--radius) * 2.2);
+    --radius-4xl: calc(var(--radius) * 2.6);
+    --color-background: var(--background);
+    --color-foreground: var(--foreground);
+    --color-card: var(--card);
+    --color-card-foreground: var(--card-foreground);
+    --color-popover: var(--popover);
+    --color-popover-foreground: var(--popover-foreground);
+    --color-primary: var(--primary);
+    --color-primary-foreground: var(--primary-foreground);
+    --color-secondary: var(--secondary);
+    --color-secondary-foreground: var(--secondary-foreground);
+    --color-muted: var(--muted);
+    --color-muted-foreground: var(--muted-foreground);
+    --color-accent: var(--accent);
+    --color-accent-foreground: var(--accent-foreground);
+    --color-destructive: var(--destructive);
+    --color-border: var(--border);
+    --color-input: var(--input);
+    --color-ring: var(--ring);
+    --color-stock-ok: var(--stock-ok);
+    --color-stock-ok-foreground: var(--stock-ok-foreground);
+    --color-stock-warn: var(--stock-warn);
+    --color-stock-low: var(--stock-low);
+    --color-stock-low-foreground: var(--stock-low-foreground);
+    --color-stock-out: var(--stock-out);
+    --color-success: var(--success);
+    --color-brand-foreground: var(--brand-foreground);
+    --color-subtle-foreground: var(--subtle-foreground);
+    --color-switch-off: var(--switch-off);
+    --color-marker: var(--marker);
+}
+
+@layer base {
+    * {
+        @apply border-border;
+    }
+
+    html {
+        @apply font-sans;
+        height: 100%;
+    }
+
+    body {
+        @apply bg-background text-foreground antialiased;
+    }
+
+    /* One solid, high-contrast focus outline everywhere (design system: `ring`). */
+    :focus-visible {
+        outline: 2px solid var(--ring);
+        outline-offset: 2px;
+    }
+
+    input::placeholder {
+        color: var(--placeholder);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        * {
+            transition: none !important;
+        }
+    }
+
+    /*
+     * Existing page layout, kept until the redesigned pages replace it.
+     * It sits in the base layer so Tailwind utilities can override it.
+     */
+    html,
+    body {
+        max-width: 100vw;
+        overflow-x: hidden;
+    }
+
+    body {
+        min-height: 100%;
+        display: flex;
+        flex-direction: column;
+    }
+
+    footer {
+        display: flex;
+        flex: 1;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 60px;
+    }
+
+    a {
+        color: inherit;
+        text-decoration: none;
     }
 }
