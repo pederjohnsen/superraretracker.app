@@ -23,7 +23,7 @@ export default function Home() {
   const setup = useDeviceSetup();
   const { permission } = setup;
   const { releases, isLoading, error } = useReleases();
-  const { subscriptions, sentAlerts, setReleaseSubscription, isReady, error: subscriptionError } =
+  const { subscriptions, sentAlerts, setReleaseSubscription, sendTestAlert, isReady, error: subscriptionError } =
     usePushSubscriptionSync(permission);
   const now = useNow();
 
@@ -74,6 +74,7 @@ export default function Home() {
     return (
       <SetupGate
         setup={setup}
+        onSendTestAlert={sendTestAlert}
         onFinish={() => {
           setFinishedSetup(true);
           window.scrollTo(0, 0);

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { isValidDevice, savePushSubscription } from "@/lib/push-subscriptions";
 
 const MAX_SUBSCRIPTIONS_PER_REQUEST = 200;
 
@@ -17,15 +18,10 @@ type SyncSubscriptionsBody = {
 
 function isValidBody(body: unknown): body is SyncSubscriptionsBody {
   if (typeof body !== "object" || body === null) return false;
-  const { clientId, endpoint, keys, subscriptions } = body as Record<string, unknown>;
+  const value = body as Record<string, unknown>;
+  if (!isValidDevice(value)) return false;
 
-  if (typeof clientId !== "string" || clientId.length === 0) return false;
-  if (typeof endpoint !== "string" || endpoint.length === 0) return false;
-  if (typeof keys !== "object" || keys === null) return false;
-  const { p256dh, auth } = keys as Record<string, unknown>;
-  if (typeof p256dh !== "string" || p256dh.length === 0) return false;
-  if (typeof auth !== "string" || auth.length === 0) return false;
-
+  const { subscriptions } = value;
   if (!Array.isArray(subscriptions) || subscriptions.length > MAX_SUBSCRIPTIONS_PER_REQUEST) return false;
   return subscriptions.every(
     (sub) =>
@@ -78,17 +74,7 @@ export async function POST(request: Request) {
 
   const { clientId, endpoint, keys, subscriptions } = body;
 
-  const existingByClientId = await db.pushSubscription.findFirst({ where: { clientId } });
-  const pushSubscription = existingByClientId
-    ? await db.pushSubscription.update({
-        where: { id: existingByClientId.id },
-        data: { endpoint, p256dh: keys.p256dh, auth: keys.auth },
-      })
-    : await db.pushSubscription.upsert({
-        where: { endpoint },
-        create: { clientId, endpoint, p256dh: keys.p256dh, auth: keys.auth },
-        update: { clientId, p256dh: keys.p256dh, auth: keys.auth },
-      });
+  const pushSubscription = await savePushSubscription({ clientId, endpoint, keys });
 
   const existing = await db.releaseSubscription.findMany({
     where: { pushSubscriptionId: pushSubscription.id },

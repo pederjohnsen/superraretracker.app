@@ -40,7 +40,16 @@ function currentStep(device: DeviceKind, setup: DeviceSetup): Step {
  * then the permission prompt, then a confirmation that opens the release list.
  * There's no skip, because the tracker can't do its job without alerts.
  */
-export function SetupGate({ setup, onFinish }: { setup: DeviceSetup; onFinish: () => void }) {
+export function SetupGate({
+  setup,
+  onFinish,
+  onSendTestAlert,
+}: {
+  setup: DeviceSetup;
+  onFinish: () => void;
+  /** Sends a real push to this device; throws with a message to show if it can't. */
+  onSendTestAlert: () => Promise<void>;
+}) {
   // Starts from detection; the "Steps for" switch is there for when it's wrong.
   const [deviceOverride, setDeviceOverride] = useState<DeviceKind | null>(null);
   const device = deviceOverride ?? setup.device;
@@ -92,7 +101,7 @@ export function SetupGate({ setup, onFinish }: { setup: DeviceSetup; onFinish: (
         {step === "install" && device === "android" && <AndroidInstall setup={setup} />}
         {step === "allow" && <Allow setup={setup} />}
         {step === "blocked" && <Blocked device={device} onCheck={setup.recheckPermission} />}
-        {step === "done" && <Done onFinish={onFinish} />}
+        {step === "done" && <Done onFinish={onFinish} onSendTestAlert={onSendTestAlert} />}
       </section>
     </main>
   );
@@ -248,22 +257,16 @@ function Blocked({ device, onCheck }: { device: DeviceKind; onCheck: () => void 
   );
 }
 
-function Done({ onFinish }: { onFinish: () => void }) {
-  const [testState, setTestState] = useState<"idle" | "sent" | "failed">("idle");
+function Done({ onFinish, onSendTestAlert }: { onFinish: () => void; onSendTestAlert: () => Promise<void> }) {
+  const [test, setTest] = useState<{ state: "idle" | "sending" | "sent" | "failed"; message?: string }>({ state: "idle" });
 
-  // Shown by this device's service worker, so it checks notifications display here.
   async function sendTestAlert() {
+    setTest({ state: "sending" });
     try {
-      const registration = await navigator.serviceWorker.register("/sw.js");
-      await navigator.serviceWorker.ready;
-      await registration.showNotification("Test alert", {
-        body: "Stock alerts from Super Rare Tracker will look like this.",
-        icon: "/icon-192x192.png",
-        badge: "/icon-192x192.png",
-      });
-      setTestState("sent");
-    } catch {
-      setTestState("failed");
+      await onSendTestAlert();
+      setTest({ state: "sent" });
+    } catch (err) {
+      setTest({ state: "failed", message: err instanceof Error ? err.message : undefined });
     }
   }
 
@@ -284,15 +287,20 @@ function Done({ onFinish }: { onFinish: () => void }) {
         <Button className="flex-[1_1_180px] px-4 sm:h-10" onClick={onFinish}>
           Start tracking
         </Button>
-        <Button variant="outline" className="flex-[1_1_160px] px-4 sm:h-10" onClick={sendTestAlert}>
-          Send a test alert
+        <Button
+          variant="outline"
+          className="flex-[1_1_160px] px-4 sm:h-10"
+          onClick={sendTestAlert}
+          disabled={test.state === "sending"}
+        >
+          {test.state === "sending" ? "Sending…" : "Send a test alert"}
         </Button>
       </div>
-      {testState !== "idle" && (
-        <p role="status" className={testState === "sent" ? "m-0 text-sm text-success" : "m-0 text-sm text-stock-low-foreground"}>
-          {testState === "sent"
-            ? "Test alert sent. Not there? Check your device’s notification settings."
-            : "Couldn’t show a test alert. Check your device’s notification settings."}
+      {(test.state === "sent" || test.state === "failed") && (
+        <p role="status" className={test.state === "sent" ? "m-0 text-sm text-success" : "m-0 text-sm text-stock-low-foreground"}>
+          {test.state === "sent"
+            ? "Test alert sent. It should arrive within a few seconds. Not there? Check your device’s notification settings."
+            : (test.message ?? "Couldn’t send a test alert. Check your device’s notification settings, then try again.")}
         </p>
       )}
     </>
