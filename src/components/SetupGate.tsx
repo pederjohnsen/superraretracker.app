@@ -87,7 +87,7 @@ export function SetupGate({ setup, onFinish }: { setup: DeviceSetup; onFinish: (
 
       <StepProgress steps={steps} current={stepIndex} />
 
-      <section aria-live="polite" className="flex flex-col gap-4 rounded-xl border bg-card p-5 text-card-foreground">
+      <section aria-live="polite" className="flex flex-col gap-4 rounded-md border bg-card p-5 text-card-foreground">
         {step === "install" && device === "ios" && <IosInstall />}
         {step === "install" && device === "android" && <AndroidInstall setup={setup} />}
         {step === "allow" && <Allow setup={setup} />}
