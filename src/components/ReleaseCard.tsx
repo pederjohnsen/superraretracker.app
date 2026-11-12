@@ -60,7 +60,7 @@ export function ReleaseCard({ release, threshold, sentAlert, canTrack, onThresho
           <p className="m-0 text-xs text-muted-foreground">
             {release.pricePence !== null && (
               <>
-                {formatPrice(release.pricePence)} <span aria-hidden>·</span>{" "}
+                {formatPrice(release.pricePence, release.currency)} <span aria-hidden>·</span>{" "}
               </>
             )}
             <time dateTime={release.releaseDate}>{formatDate(release.releaseDate)}</time>

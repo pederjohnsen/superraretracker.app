@@ -16,6 +16,8 @@ enum ReleaseType {
 model Release {
   id                  String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   key                 String                @unique
+  // Which publisher's store this is from: a key in src/lib/publishers (e.g. "super-rare-games").
+  publisher           String                @default("super-rare-games")
   name                String
   url                 String
   type                ReleaseType
@@ -24,8 +26,10 @@ model Release {
   lastStockPercentage Int?
   // Product image from the store (resized by Shopify), shown on the release card.
   coverUrl            String?
-  // Price in pence (GBP), from the store's product page.
+  // Price in minor units of `currency` (3720 for £37.20), from the store.
   pricePence          Int?
+  // ISO 4217 currency of the price, the publisher's store currency.
+  currency            String                @default("GBP")
   // What the card shows, split from the store title when the release is added.
   // Edit these to fix a title the parser got wrong. When title is empty, the
   // card splits `name` on the fly instead (releases added before these existed).

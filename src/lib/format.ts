@@ -3,7 +3,7 @@
 
 const TIME_ZONE = "Europe/London";
 
-const priceFormat = new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" });
+const priceFormats = new Map<string, Intl.NumberFormat>();
 const dayMonthYear = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: TIME_ZONE });
 const dayMonth = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", timeZone: TIME_ZONE });
 const dayMonthTime = new Intl.DateTimeFormat("en-GB", {
@@ -16,9 +16,14 @@ const dayMonthTime = new Intl.DateTimeFormat("en-GB", {
 });
 const fullDateTime = new Intl.DateTimeFormat("en-GB", { dateStyle: "full", timeStyle: "short", timeZone: TIME_ZONE });
 
-/** 3720 -> "£37.20" */
-export function formatPrice(pence: number): string {
-  return priceFormat.format(pence / 100);
+/** 3720, "GBP" -> "£37.20"; 3499, "EUR" -> "€34.99". */
+export function formatPrice(minorUnits: number, currency = "GBP"): string {
+  let format = priceFormats.get(currency);
+  if (!format) {
+    format = new Intl.NumberFormat("en-GB", { style: "currency", currency });
+    priceFormats.set(currency, format);
+  }
+  return format.format(minorUnits / 100);
 }
 
 /** "25 Sept 2026" */

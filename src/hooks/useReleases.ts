@@ -13,6 +13,8 @@ export type ReleaseDto = Omit<Release, "releaseDate" | "preOrderCloseDate" | "cr
     updatedAt: string | null;
     /** When stock was last read successfully, or null if never. */
     lastCheckedAt: string | null;
+    /** The publisher's display name, e.g. "Super Rare Games". */
+    publisherName: string;
     /** When stock goes on sale, only while that's still ahead. */
     stockLiveAt: string | null;
     /** On sale, but the store shows no stock bar for this product, so there's nothing to alert on. */
