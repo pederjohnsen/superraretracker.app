@@ -225,8 +225,9 @@ function PlatformToggles({
       onValueChange={(values) => onSelectedPlatformsChange(PLATFORM_ORDER.filter((type) => values.filter(isReleaseType).includes(type)))}
       aria-labelledby={labelledBy}
       className={cn(inSheet ? "grid w-full" : "flex-wrap")}
-      // ToggleGroup sets its gap through --gap, so pass it again alongside the columns.
-      style={inSheet ? ({ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`, "--gap": 2 } as CSSProperties) : undefined}
+      // ToggleGroup sets its gap through --gap in `style`, and any style passed in
+      // replaces it (even undefined), so always pass --gap here too.
+      style={{ "--gap": 2, ...(inSheet && { gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }) } as CSSProperties}
     >
       {platforms.map((platform) => (
         <ToggleGroupItem
