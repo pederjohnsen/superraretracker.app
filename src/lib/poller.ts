@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { getReleaseLaunchAt } from "@/lib/launch";
-import { scrapeProductPage, type ProductPage } from "@/lib/scraper";
+import { getPublisher } from "@/lib/publishers";
+import type { ProductSnapshot } from "@/lib/publishers/types";
 import { saveProductDetails } from "@/lib/product-details";
 import { buildRestockAlertMessage, buildStockAlertMessage } from "@/lib/stock";
 import { sendPushNotification } from "@/lib/push";
@@ -235,13 +236,14 @@ async function rearmTriggeredSubscribers(releaseId: string, currentPercentage: n
 
 async function pollRelease(release: DueRelease, now: Date) {
   const previousConsecutiveFailures = release.pollSchedule?.consecutiveFailures ?? 0;
-  const launchAt = getReleaseLaunchAt(release.releaseDate, release?.preOrderCloseDate);
+  const publisher = getPublisher(release.publisher);
+  const launchAt = getReleaseLaunchAt(publisher.launch, release.releaseDate, release.preOrderCloseDate);
 
   if (now < launchAt) {
     // Not on sale yet, but the product page already has the cover and price.
     if (!release.coverUrl || release.pricePence === null) {
       try {
-        await saveProductDetails(release, await scrapeProductPage(release.url));
+        await saveProductDetails(release, await publisher.readProduct(release));
       } catch (err) {
         console.error(`Failed to fetch product details for release ${release.key}:`, err);
       }
@@ -274,9 +276,9 @@ async function pollRelease(release: DueRelease, now: Date) {
 
   const minutesSinceLaunch = (now.getTime() - launchAt.getTime()) / 60_000;
 
-  let page: ProductPage;
+  let page: ProductSnapshot;
   try {
-    page = await scrapeProductPage(release.url);
+    page = await publisher.readProduct(release);
   } catch (err) {
     // Reschedule with backoff instead of leaving the release perpetually "due" and
     // hammering a broken/blocked URL on every cron run.
