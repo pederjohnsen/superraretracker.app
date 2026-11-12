@@ -11,13 +11,24 @@ import { usePushSubscriptionSync } from "@/hooks/usePushSubscriptionSync";
 import { useReleases } from "@/hooks/useReleases";
 import { useStoredState } from "@/hooks/useStoredState";
 import { PLATFORM_ORDER } from "@/lib/platform";
-import { filterReleases, isPlatformFilter, isSortOrder, sortReleases, type PlatformFilter, type SortOrder } from "@/lib/release-list";
+import type { ReleaseType } from "../../zenstack/models";
+import {
+  filterReleases,
+  formatPlatformSelection,
+  isSortOrder,
+  parsePlatformSelection,
+  sortReleases,
+  type SortOrder,
+} from "@/lib/release-list";
 
-// The platform key is the one the old page used, so saved filters carry over.
+// The platform key is the one the old page used. It now holds a list ("SWITCH2,PS5"),
+// and an old single platform reads as a list of one, so saved filters carry over.
 const PLATFORM_STORAGE_KEY = "superraretracker.typeFilter";
 const SORT_STORAGE_KEY = "superraretracker.sort";
+const IN_STOCK_ONLY_STORAGE_KEY = "superraretracker.inStockOnly";
 const TRACKED_ONLY_STORAGE_KEY = "superraretracker.trackedOnly";
 const isBooleanString = (value: string): value is "true" | "false" => value === "true" || value === "false";
+const isPlatformSelection = (value: string): value is string => parsePlatformSelection(value) !== null;
 
 export default function Home() {
   const setup = useDeviceSetup();
@@ -28,8 +39,10 @@ export default function Home() {
   const now = useNow();
 
   const [search, setSearch] = useState("");
-  const [platform, setPlatform] = useStoredState<PlatformFilter>(PLATFORM_STORAGE_KEY, "ALL", isPlatformFilter);
+  const [platformValue, setPlatformValue] = useStoredState(PLATFORM_STORAGE_KEY, "ALL", isPlatformSelection);
   const [sort, setSort] = useStoredState<SortOrder>(SORT_STORAGE_KEY, "date-desc", isSortOrder);
+  const [inStockOnlyValue, setInStockOnlyValue] = useStoredState(IN_STOCK_ONLY_STORAGE_KEY, "false", isBooleanString);
+  const inStockOnly = inStockOnlyValue === "true";
   const [trackedOnlyValue, setTrackedOnlyValue] = useStoredState(TRACKED_ONLY_STORAGE_KEY, "false", isBooleanString);
   const trackedOnly = trackedOnlyValue === "true";
 
@@ -38,27 +51,36 @@ export default function Home() {
     () => PLATFORM_ORDER.filter((type) => releases.some((release) => release.type === type)),
     [releases],
   );
+  // Only the picked platforms that still have releases count, so a saved pick
+  // with no toggle on screen can't hide the whole list.
+  const selectedPlatforms = useMemo(() => {
+    const saved = parsePlatformSelection(platformValue) ?? [];
+    return isLoading ? saved : saved.filter((type) => platforms.includes(type));
+  }, [platformValue, platforms, isLoading]);
+  const setSelectedPlatforms = (next: ReleaseType[]) => setPlatformValue(formatPlatformSelection(next));
 
   const visibleReleases = useMemo(
     () =>
       sortReleases(
         filterReleases(releases, {
           search,
-          platform,
+          platforms: selectedPlatforms,
+          inStockOnly,
           trackedOnly,
           isTracked: (release) => subscriptions[release.id] !== undefined,
         }),
         sort,
       ),
-    [releases, search, platform, trackedOnly, subscriptions, sort],
+    [releases, search, selectedPlatforms, inStockOnly, trackedOnly, subscriptions, sort],
   );
 
   const trackedCount = releases.filter((release) => subscriptions[release.id] !== undefined).length;
-  const hasFilters = search.trim() !== "" || platform !== "ALL" || trackedOnly;
+  const hasFilters = search.trim() !== "" || selectedPlatforms.length > 0 || inStockOnly || trackedOnly;
 
   const clearFilters = () => {
     setSearch("");
-    setPlatform("ALL");
+    setSelectedPlatforms([]);
+    setInStockOnlyValue("false");
     setTrackedOnlyValue("false");
   };
 
@@ -112,10 +134,12 @@ export default function Home() {
             search={search}
             onSearchChange={setSearch}
             platforms={platforms}
-            platform={platform}
-            onPlatformChange={setPlatform}
+            selectedPlatforms={selectedPlatforms}
+            onSelectedPlatformsChange={setSelectedPlatforms}
             sort={sort}
             onSortChange={setSort}
+            inStockOnly={inStockOnly}
+            onInStockOnlyChange={(value) => setInStockOnlyValue(value ? "true" : "false")}
             trackedOnly={trackedOnly}
             onTrackedOnlyChange={(value) => setTrackedOnlyValue(value ? "true" : "false")}
             resultCount={visibleReleases.length}
@@ -146,7 +170,8 @@ export default function Home() {
             !error && (
               <EmptyState
                 trackedOnly={trackedOnly}
-                hasOtherFilters={search.trim() !== "" || platform !== "ALL"}
+                inStockOnly={inStockOnly}
+                hasOtherFilters={search.trim() !== "" || selectedPlatforms.length > 0}
                 hasTracked={trackedCount > 0}
                 onClear={clearFilters}
               />
