@@ -4,7 +4,6 @@ import { isReleaseType } from "@/lib/platform";
 // Filtering and sorting for the release list. Kept out of the page so the
 // rules are in one place when more filters (say, publisher) are added.
 
-export type PlatformFilter = "ALL" | ReleaseType;
 
 export const SORT_OPTIONS = [
   { value: "date-desc", label: "Newest first" },
@@ -17,8 +16,25 @@ export const SORT_OPTIONS = [
 
 export type SortOrder = (typeof SORT_OPTIONS)[number]["value"];
 
-export function isPlatformFilter(value: string): value is PlatformFilter {
-  return value === "ALL" || isReleaseType(value);
+/**
+ * The saved platform selection, as stored on the device: "ALL" (or empty) for
+ * every platform, otherwise a comma-separated list like "SWITCH2,PS5". A single
+ * value, like the old one-platform filter saved, reads as a list of one.
+ * Returns null for anything else, so a bad value falls back to the default.
+ */
+export function parsePlatformSelection(value: string): ReleaseType[] | null {
+  if (value === "" || value === "ALL") return [];
+  const types = value.split(",");
+  return types.every(isReleaseType) ? types : null;
+}
+
+export function formatPlatformSelection(platforms: ReleaseType[]): string {
+  return platforms.length === 0 ? "ALL" : platforms.join(",");
+}
+
+/** On sale now, with stock left. Sold out, not on sale yet and no stock level on the store don't count. */
+export function isInStock(release: Pick<ListableRelease, "stockLiveAt" | "lastStockPercentage">): boolean {
+  return !release.stockLiveAt && release.lastStockPercentage !== null && release.lastStockPercentage > 0;
 }
 
 export function isSortOrder(value: string): value is SortOrder {
@@ -39,7 +55,9 @@ export type ListableRelease = {
 
 export type ReleaseFilters<T> = {
   search: string;
-  platform: PlatformFilter;
+  /** Platforms to show; empty shows every platform. */
+  platforms: ReleaseType[];
+  inStockOnly: boolean;
   trackedOnly: boolean;
   isTracked: (release: T) => boolean;
 };
@@ -52,7 +70,8 @@ function normalise(text: string): string {
 export function filterReleases<T extends ListableRelease>(releases: T[], filters: ReleaseFilters<T>): T[] {
   const query = normalise(filters.search);
   return releases.filter((release) => {
-    if (filters.platform !== "ALL" && release.type !== filters.platform) return false;
+    if (filters.platforms.length > 0 && !filters.platforms.includes(release.type)) return false;
+    if (filters.inStockOnly && !isInStock(release)) return false;
     if (filters.trackedOnly && !filters.isTracked(release)) return false;
     if (!query) return true;
     // The store name covers title, catalogue and edition in one string.

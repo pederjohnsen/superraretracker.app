@@ -1,26 +1,30 @@
 "use client";
 
-import { useId, useState } from "react";
-import { Search, SlidersHorizontal, X } from "lucide-react";
+import { useId, useState, type CSSProperties } from "react";
+import { Check, Search, SlidersHorizontal, X } from "lucide-react";
+import type { ReleaseType } from "../../zenstack/models";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { Sheet, SheetClose, SheetContent, SheetDescription, SheetFooter, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Switch } from "@/components/ui/switch";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { PLATFORM_LABEL } from "@/lib/platform";
-import { isPlatformFilter, isSortOrder, SORT_OPTIONS, type PlatformFilter, type SortOrder } from "@/lib/release-list";
+import { isReleaseType, PLATFORM_LABEL, PLATFORM_ORDER } from "@/lib/platform";
+import { isSortOrder, SORT_OPTIONS, type SortOrder } from "@/lib/release-list";
 import { cn } from "@/lib/utils";
 
 type FilterBarProps = {
   search: string;
   onSearchChange: (search: string) => void;
-  /** The platforms that have releases, in display order ("ALL" is added here). */
-  platforms: Exclude<PlatformFilter, "ALL">[];
-  platform: PlatformFilter;
-  onPlatformChange: (platform: PlatformFilter) => void;
+  /** The platforms that have releases, in display order. */
+  platforms: ReleaseType[];
+  /** The platforms picked; empty shows every platform. */
+  selectedPlatforms: ReleaseType[];
+  onSelectedPlatformsChange: (platforms: ReleaseType[]) => void;
   sort: SortOrder;
   onSortChange: (sort: SortOrder) => void;
+  inStockOnly: boolean;
+  onInStockOnlyChange: (inStockOnly: boolean) => void;
   trackedOnly: boolean;
   onTrackedOnlyChange: (trackedOnly: boolean) => void;
   /** Releases shown with the current filters, for the sheet's button. */
@@ -29,20 +33,38 @@ type FilterBarProps = {
 };
 
 /**
- * Search and filters, pinned to the top while the list scrolls. From 640px the
- * filters sit inline; on phones they move into a bottom sheet, with each active
+ * Search and filters, pinned to the top while the list scrolls. From 640px,
+ * search and sort sit on the first row and the filters on a second: platform
+ * toggles (pick any; none shows all) and the In stock only and Tracked only
+ * switches. On phones the filters move into a bottom sheet, with each active
  * filter shown as a removable chip under the bar.
  */
 export function FilterBar(props: FilterBarProps) {
-  const { search, onSearchChange, platform, onPlatformChange, trackedOnly, onTrackedOnlyChange, resultCount, onClearFilters } = props;
+  const {
+    search,
+    onSearchChange,
+    selectedPlatforms,
+    onSelectedPlatformsChange,
+    inStockOnly,
+    onInStockOnlyChange,
+    trackedOnly,
+    onTrackedOnlyChange,
+    resultCount,
+    onClearFilters,
+  } = props;
   const [sheetOpen, setSheetOpen] = useState(false);
   const id = useId();
 
   // Sort isn't a filter, so it never gets a chip or counts as active.
   const chips = [
-    platform !== "ALL" && { label: PLATFORM_LABEL[platform], remove: () => onPlatformChange("ALL") },
-    trackedOnly && { label: "Tracked only", remove: () => onTrackedOnlyChange(false) },
-  ].filter((chip) => chip !== false);
+    // One chip per picked platform, each removable on its own.
+    ...selectedPlatforms.map((platform) => ({
+      label: PLATFORM_LABEL[platform],
+      remove: () => onSelectedPlatformsChange(selectedPlatforms.filter((picked) => picked !== platform)),
+    })),
+    ...(inStockOnly ? [{ label: "In stock", remove: () => onInStockOnlyChange(false) }] : []),
+    ...(trackedOnly ? [{ label: "Tracked only", remove: () => onTrackedOnlyChange(false) }] : []),
+  ];
 
   return (
     <div className="sticky top-[env(safe-area-inset-top)] z-20 -mx-4 flex flex-col gap-2 border-b bg-background/95 px-4 py-2 backdrop-blur">
@@ -93,10 +115,15 @@ export function FilterBar(props: FilterBarProps) {
             <SheetDescription className="sr-only">Narrow down and sort the release list.</SheetDescription>
 
             <div className="flex flex-col gap-2">
-              <span id={`${id}-sheet-platform`} className="text-sm font-medium">
-                Platform
-              </span>
-              <PlatformToggle {...props} labelledBy={`${id}-sheet-platform`} fullWidth />
+              <div className="flex items-baseline justify-between gap-2">
+                <span id={`${id}-sheet-platforms`} className="text-sm font-medium">
+                  Platforms
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  {selectedPlatforms.length === 0 ? "All platforms" : `${selectedPlatforms.length} picked`}
+                </span>
+              </div>
+              <PlatformToggles {...props} labelledBy={`${id}-sheet-platforms`} inSheet />
             </div>
             <div className="flex flex-col gap-2">
               <label htmlFor={`${id}-sheet-sort`} className="text-sm font-medium">
@@ -104,7 +131,22 @@ export function FilterBar(props: FilterBarProps) {
               </label>
               <SortSelect {...props} id={`${id}-sheet-sort`} className="w-full" />
             </div>
-            <TrackedOnlySwitch {...props} id={`${id}-sheet-tracked`} className="w-full justify-between px-0 text-base hover:bg-transparent" />
+            <div className="flex flex-col">
+              <FilterSwitch
+                id={`${id}-sheet-in-stock`}
+                label="In stock only"
+                checked={inStockOnly}
+                onCheckedChange={onInStockOnlyChange}
+                inSheet
+              />
+              <FilterSwitch
+                id={`${id}-sheet-tracked`}
+                label="Tracked only"
+                checked={trackedOnly}
+                onCheckedChange={onTrackedOnlyChange}
+                inSheet
+              />
+            </div>
 
             <SheetFooter className="flex-row gap-2 border-t p-0 pt-4">
               <Button variant="ghost" className="px-4" onClick={onClearFilters}>
@@ -119,13 +161,24 @@ export function FilterBar(props: FilterBarProps) {
           </SheetContent>
         </Sheet>
 
-        <div className="hidden sm:contents">
-          <PlatformToggle {...props} label="Platform" />
+        <div className="hidden sm:block">
           <label htmlFor={`${id}-sort`} className="sr-only">
             Sort releases
           </label>
           <SortSelect {...props} id={`${id}-sort`} />
-          <TrackedOnlySwitch {...props} id={`${id}-tracked`} />
+        </div>
+      </div>
+
+      <div className="hidden flex-wrap items-center justify-between gap-2 sm:flex">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span id={`${id}-platforms`} className="mr-0.5 text-sm text-muted-foreground">
+            Platforms
+          </span>
+          <PlatformToggles {...props} labelledBy={`${id}-platforms`} />
+        </div>
+        <div className="flex items-center gap-1">
+          <FilterSwitch id={`${id}-in-stock`} label="In stock only" checked={inStockOnly} onCheckedChange={onInStockOnlyChange} />
+          <FilterSwitch id={`${id}-tracked`} label="Tracked only" checked={trackedOnly} onCheckedChange={onTrackedOnlyChange} />
         </div>
       </div>
 
@@ -150,37 +203,43 @@ export function FilterBar(props: FilterBarProps) {
   );
 }
 
-function PlatformToggle({
+/**
+ * Pick any combination of platforms; picking none shows them all, so there's
+ * no "All" button. Pills in the bar, a grid of buttons in the sheet.
+ */
+function PlatformToggles({
   platforms,
-  platform,
-  onPlatformChange,
-  label,
+  selectedPlatforms,
+  onSelectedPlatformsChange,
   labelledBy,
-  fullWidth,
-}: FilterBarProps & { label?: string; labelledBy?: string; fullWidth?: boolean }) {
-  const options: PlatformFilter[] = ["ALL", ...platforms];
+  inSheet,
+}: FilterBarProps & { labelledBy: string; inSheet?: boolean }) {
+  // Two per row for four, otherwise one row in the sheet.
+  const columns = platforms.length === 4 ? 2 : Math.min(platforms.length, 3);
   return (
     <ToggleGroup
-      type="single"
-      spacing={0}
-      value={platform}
-      // Radix sends "" when the pressed item is pressed again; keep one selected.
-      onValueChange={(value) => value && isPlatformFilter(value) && onPlatformChange(value)}
-      aria-label={label}
+      type="multiple"
+      spacing={2}
+      value={selectedPlatforms}
+      // Keep the store's order, whatever order they were tapped in.
+      onValueChange={(values) => onSelectedPlatformsChange(PLATFORM_ORDER.filter((type) => values.filter(isReleaseType).includes(type)))}
       aria-labelledby={labelledBy}
-      className={cn(
-        "h-11 rounded-md border border-input p-0.5 sm:h-9",
-        fullWidth && "grid w-full",
-      )}
-      style={fullWidth ? { gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` } : undefined}
+      className={cn(inSheet ? "grid w-full" : "flex-wrap")}
+      // ToggleGroup sets its gap through --gap, so pass it again alongside the columns.
+      style={inSheet ? ({ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`, "--gap": 2 } as CSSProperties) : undefined}
     >
-      {options.map((option) => (
+      {platforms.map((platform) => (
         <ToggleGroupItem
-          key={option}
-          value={option}
-          className="h-full min-w-0 rounded-sm! px-2.5 text-muted-foreground hover:text-foreground data-[state=on]:text-foreground sm:h-full"
+          key={platform}
+          value={platform}
+          className={cn(
+            "gap-1 border border-input bg-transparent px-3 text-muted-foreground hover:bg-accent hover:text-foreground",
+            "data-[state=on]:border-primary data-[state=on]:bg-primary/15 data-[state=on]:text-foreground data-[state=on]:hover:bg-primary/25",
+            inSheet ? "h-11 min-w-0 rounded-md!" : "rounded-full!",
+          )}
         >
-          {option === "ALL" ? "All" : PLATFORM_LABEL[option]}
+          {selectedPlatforms.includes(platform) && <Check aria-hidden className="size-3.5" strokeWidth={2.4} />}
+          {PLATFORM_LABEL[platform]}
         </ToggleGroupItem>
       ))}
     </ToggleGroup>
@@ -204,23 +263,30 @@ function SortSelect({ sort, onSortChange, id, className }: FilterBarProps & { id
   );
 }
 
-function TrackedOnlySwitch({
-  trackedOnly,
-  onTrackedOnlyChange,
+/** A labelled switch where the whole row is the target. In the sheet, the switch sits on the right. */
+function FilterSwitch({
   id,
-  className,
-}: FilterBarProps & { id: string; className?: string }) {
-  // The whole row is the target: label and switch together.
+  label,
+  checked,
+  onCheckedChange,
+  inSheet,
+}: {
+  id: string;
+  label: string;
+  checked: boolean;
+  onCheckedChange: (checked: boolean) => void;
+  inSheet?: boolean;
+}) {
   return (
     <label
       htmlFor={id}
       className={cn(
-        "inline-flex h-11 cursor-pointer items-center gap-2 rounded-md px-2 text-sm font-medium hover:bg-accent sm:h-9",
-        className,
+        "inline-flex h-11 cursor-pointer items-center gap-2 rounded-md text-sm font-medium sm:h-9",
+        inSheet ? "w-full justify-between px-0 text-base" : "px-2 hover:bg-accent",
       )}
     >
-      <Switch id={id} checked={trackedOnly} onCheckedChange={onTrackedOnlyChange} className="order-last sm:order-first" />
-      Tracked only
+      <Switch id={id} checked={checked} onCheckedChange={onCheckedChange} className={inSheet ? "order-last" : undefined} />
+      {label}
     </label>
   );
 }
