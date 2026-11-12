@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getStockLiveAt } from "@/lib/launch";
+import { getPublisher, isPublisherKey } from "@/lib/publishers";
 import { parseReleaseTitle } from "@/lib/release-title";
 
 // The stock bar can take a little while to appear after launch.
@@ -19,7 +20,9 @@ export async function GET() {
   const now = new Date();
   return NextResponse.json(
     releases.map(({ stockChecks, pollSchedule, ...release }) => {
-      const stockLiveAt = getStockLiveAt(release.releaseDate, release.preOrderCloseDate);
+      // A release with an unknown publisher still shows, with Super Rare Games' launch time.
+      const publisher = getPublisher(isPublisherKey(release.publisher) ? release.publisher : "super-rare-games");
+      const stockLiveAt = getStockLiveAt(publisher.launch, release.releaseDate, release.preOrderCloseDate);
       const parsed = parseReleaseTitle(release.name);
       return {
         ...release,
@@ -27,6 +30,7 @@ export async function GET() {
         // by hand), otherwise split from the store title.
         ...parsed,
         ...(release.title && { title: release.title, catalogue: release.catalogue, edition: release.edition }),
+        publisherName: publisher.name,
         lastCheckedAt: stockChecks[0]?.checkedAt ?? null,
         // Only while still ahead: "Stock goes live 12 Nov, 18:00".
         stockLiveAt: stockLiveAt > now ? stockLiveAt : null,

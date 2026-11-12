@@ -43,7 +43,7 @@ The scheduled endpoints accept the secret as `Authorization: Bearer <CRON_SECRET
 
 ### When the store changes
 
-Everything the monitor assumes about the store is in `src/lib/monitor/config.ts`: the collections it reads, which product types count as releases, how it tells the platform, what it strips from titles, and how it finds the release date. Edit the rules there, then check them with `?dryRun=1`.
+Each publisher is a module in `src/lib/publishers/<key>/` with everything the app assumes about its store: how to read stock, price and cover, its launch time, and the monitor's rules. For Super Rare Games, the monitor rules are in `src/lib/publishers/super-rare-games/monitor-config.ts`: the collections it reads, which product types count as releases, how it tells the platform, what it strips from titles, and how it finds the release date. Edit the rules there, then check them with `?dryRun=1`.
 
 New releases are saved with their card title, catalogue number and edition already split out (`title`, `catalogue`, `edition` on `Release`). If one comes out wrong, correct those columns and it stays corrected. Releases without a saved `title` are split from `name` when the list loads.
 

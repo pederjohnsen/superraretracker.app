@@ -1,4 +1,4 @@
-import type { ReleaseType } from "../../../zenstack/models";
+import type { ReleaseType } from "../../../../zenstack/models";
 
 // Everything the release monitor relies on about the Super Rare Games store,
 // in one place. If the store changes its URLs, product types or page wording,
@@ -15,12 +15,6 @@ export const MONITOR_CONFIG = {
    */
   collections: ["srg-store-new-web", "switch", "switch-2", "playstation"],
 
-  /**
-   * Only products the store published this many days ago or less are added,
-   * so a first run doesn't import the whole back catalogue. `?days=` on the
-   * endpoint overrides it for a one-off backfill.
-   */
-  maxAgeDays: 7,
 
   /** Shopify product types that are trackable releases. Anything else (Merch, Trading Cards, Steelbook…) is skipped. */
   includeProductTypes: ["Switch", "Switch 2", "PlayStation", "Collector's Edition"],
