@@ -72,6 +72,8 @@ The scheduled endpoints accept the secret as `Authorization: Bearer <CRON_SECRET
 
 Each publisher is a module in `src/lib/publishers/<key>/` with everything the app assumes about its store: how to read stock, price and cover, its launch time, and the monitor's rules. For Super Rare Games, the monitor rules are in `src/lib/publishers/super-rare-games/monitor-config.ts`: the collections it reads, which product types count as releases, how it tells the platform, what it strips from titles, and how it finds the release date. Edit the rules there, then check them with `?dryRun=1`.
 
+**Lost in Cult** (`src/lib/publishers/lost-in-cult/`, rules in `config.ts`) sells each game as one product with Retail and EDITION options. Only the EDITION options become releases, one per platform (`lic-<product>-ps5`); Retail options and game + vinyl bundles are skipped. The store's JSON (`?format=json-pretty`) gives the exact copies left per option, and the print run comes from the description ("Limited to 1,000 copies (PS5), 1,500 copies (Switch 2)"), saved as `printRun`. Stock % is copies left ÷ print run. If the print run can't be read, the card shows the copies left instead ("312 left") and alerts can't be set; fill in `printRun` by hand to fix it. To add the editions already on sale the first time, run the monitor once with `?days=365`.
+
 New releases are saved with their card title, catalogue number and edition already split out (`title`, `catalogue`, `edition` on `Release`). If one comes out wrong, correct those columns and it stays corrected. Releases without a saved `title` are split from `name` when the list loads.
 
 ## How it fits together

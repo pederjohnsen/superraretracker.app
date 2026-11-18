@@ -38,6 +38,11 @@ type StockMeterProps = {
   liveAt: string | null;
   /** The store shows no stock bar for this product. */
   stockNotShown?: boolean;
+  /**
+   * Exact copies left, for stores that publish them. Shown instead of a
+   * percentage only when there's no print run to make one from.
+   */
+  stockCount?: number | null;
   /** The alert level, when tracked. */
   threshold?: number;
   /** The last alert sent for this release, when tracked. */
@@ -51,18 +56,33 @@ type StockMeterProps = {
  * marker when tracked, and a one-line caption that never changes the height.
  * The tier comes from the same function as the push notification wording.
  */
-export function StockMeter({ stock, releaseTitle, checkedAt, liveAt, stockNotShown, threshold, sentAlert, now }: StockMeterProps) {
+export function StockMeter({
+  stock,
+  releaseTitle,
+  checkedAt,
+  liveAt,
+  stockNotShown,
+  stockCount,
+  threshold,
+  sentAlert,
+  now,
+}: StockMeterProps) {
   const notOnSale = liveAt !== null;
-  const tier = notOnSale ? "unknown" : getStockTier(stock);
+  // Copies left but no print run: "312 left", with no bar since there's nothing to measure against.
+  const countOnly = !notOnSale && stock === null && stockCount != null;
+  const tier = notOnSale ? "unknown" : countOnly ? (stockCount === 0 ? "sold-out" : "ok") : getStockTier(stock);
   const { icon: Icon, label: labelClass, bar } = notOnSale
     ? { ...TIER_STYLE.unknown, icon: Clock }
     : TIER_STYLE[tier];
   const label = notOnSale ? NOT_ON_SALE_LABEL : STOCK_LABEL[tier];
   const value = notOnSale || stock === null ? null : Math.min(100, Math.max(0, stock));
 
+  const countText = countOnly ? `${stockCount.toLocaleString("en-GB")} left` : null;
   const valueText = notOnSale
     ? NOT_ON_SALE_LABEL
-    : value === null
+    : countText
+      ? `${countText}, ${label.toLowerCase()}`
+      : value === null
       ? "Stock level not available"
       : `${value}% left, ${label.toLowerCase()}`;
 
@@ -75,7 +95,7 @@ export function StockMeter({ stock, releaseTitle, checkedAt, liveAt, stockNotSho
           <Icon aria-hidden className="size-3.5" strokeWidth={2.4} />
           {label}
         </span>
-        <span className="text-sm font-semibold tabular-nums">{value === null ? "—" : `${value}%`}</span>
+        <span className="text-sm font-semibold tabular-nums">{countText ?? (value === null ? "—" : `${value}%`)}</span>
       </div>
       <div
         role="meter"
@@ -103,6 +123,7 @@ export function StockMeter({ stock, releaseTitle, checkedAt, liveAt, stockNotSho
         sentAlert={threshold !== undefined ? sentAlert : undefined}
         watchingForRestock={threshold !== undefined && tier === "sold-out"}
         stockNotShown={!liveAt && stock === null && stockNotShown === true}
+        countOnly={countOnly}
         now={now}
       />
     </div>
@@ -116,7 +137,12 @@ function Caption({
   now,
   watchingForRestock,
   stockNotShown,
-}: Pick<StockMeterProps, "liveAt" | "checkedAt" | "sentAlert" | "now"> & { watchingForRestock: boolean; stockNotShown: boolean }) {
+  countOnly,
+}: Pick<StockMeterProps, "liveAt" | "checkedAt" | "sentAlert" | "now"> & {
+  watchingForRestock: boolean;
+  stockNotShown: boolean;
+  countOnly: boolean;
+}) {
   let content: ReactNode = null;
   let subtle = false;
 
@@ -126,6 +152,8 @@ function Caption({
         Stock goes live <time dateTime={liveAt} title={formatFullDateTime(liveAt)}>{formatDayTime(liveAt)}</time>
       </>
     );
+  } else if (countOnly) {
+    content = "The store doesn’t say how many were made";
   } else if (stockNotShown) {
     content = "The store doesn’t show stock for this one";
   } else if (watchingForRestock && now !== null) {

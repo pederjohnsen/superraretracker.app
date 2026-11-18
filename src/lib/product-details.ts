@@ -10,6 +10,8 @@ export type ReleaseDetails = {
   publisher: string;
   coverUrl: string | null;
   pricePence: number | null;
+  variantId?: string | null;
+  printRun?: number | null;
 };
 
 /**

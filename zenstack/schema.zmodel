@@ -26,6 +26,15 @@ model Release {
   lastStockPercentage Int?
   // Product image from the store (resized by Shopify), shown on the release card.
   coverUrl            String?
+  // Exact copies left, for stores that publish them (Lost in Cult). The card
+  // shows this when there's no print run to make a percentage from.
+  stockCount          Int?
+  // Copies made, from the store's description (Lost in Cult). Stock % is
+  // stockCount / printRun. Correct it here if the description was misread.
+  printRun            Int?
+  // The store option this release is, for stores that sell each edition as an
+  // option of one product (Lost in Cult).
+  variantId           String?
   // Price in minor units of `currency` (3720 for £37.20), from the store.
   pricePence          Int?
   // ISO 4217 currency of the price, the publisher's store currency.

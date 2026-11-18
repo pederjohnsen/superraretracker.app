@@ -310,6 +310,12 @@ async function pollRelease(release: DueRelease, now: Date) {
   }
 
   await saveProductDetails(release, page);
+  // Exact copies left, for stores that publish them; shown when there's no print run for a %.
+  if (page.stockCount !== undefined && page.stockCount !== release.stockCount) {
+    await db.release
+      .update({ where: { id: release.id }, data: { stockCount: page.stockCount } })
+      .catch((err) => console.error(`Failed to save the copies left for release ${release.key}:`, err));
+  }
   const currentPercentage = page.stockPercentage;
 
   if (currentPercentage === null) {

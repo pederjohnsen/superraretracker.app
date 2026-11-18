@@ -66,7 +66,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
                             Made with <Heart role="img" aria-label="love" className="inline size-3 fill-current align-[-1px] text-brand-foreground" /> by{" "}
                             <a href="https://pederjohnsen.com" target="_blank" rel="noopener" className="text-foreground underline underline-offset-2">Peder Johnsen</a>
                         </p>
-                        <p className="m-0">Fan-made tracker, not affiliated with Super Rare Games.</p>
+                        <p className="m-0">Fan-made tracker, not affiliated with any of the publishers listed.</p>
                     </div>
                 </footer>
                 <Analytics />

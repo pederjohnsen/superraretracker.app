@@ -34,7 +34,7 @@ export function EmptyState({ trackedOnly, inStockOnly, hasOtherFilters, hasTrack
     body = "None of the releases you track are in the list. Turn off “Tracked only” to see them all.";
   } else if (!hasOtherFilters) {
     title = "No releases yet";
-    body = "New Super Rare Games releases will show up here.";
+    body = "New releases will show up here.";
   }
 
   return (
