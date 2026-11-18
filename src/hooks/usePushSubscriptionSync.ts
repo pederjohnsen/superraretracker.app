@@ -10,6 +10,25 @@ type SubscriptionMap = Record<string, number>; // releaseId -> thresholdPercenta
 export type SentAlert = { sentAt: string; percentage: number | null };
 type SentAlertMap = Record<string, SentAlert>; // releaseId -> last alert sent
 
+/** An alert this device was sent but hadn't seen in the app when it loaded. */
+export type UnseenAlert = {
+  id: string;
+  releaseId: string;
+  kind: "STOCK" | "RESTOCK";
+  percentage: number;
+  sentAt: string;
+};
+
+type SubscriptionsResponse = {
+  subscriptions: {
+    releaseId: string;
+    thresholdPercentage: number;
+    notifiedAt: string | null;
+    notifiedPercentage: number | null;
+  }[];
+  unseenAlerts?: UnseenAlert[];
+};
+
 const CLIENT_ID_STORAGE_KEY = "superraretracker.clientId";
 
 function getClientId(): string {
@@ -28,6 +47,29 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
   return Uint8Array.from([...rawData].map((char) => char.charCodeAt(0)));
 }
 
+async function fetchDeviceState(clientId: string, endpoint: string): Promise<SubscriptionsResponse> {
+  const params = new URLSearchParams({ clientId, endpoint });
+  const res = await fetch(`/api/subscriptions?${params.toString()}`);
+  if (!res.ok) throw new Error(`Failed to load subscriptions (${res.status})`);
+  return res.json();
+}
+
+/** Marks alerts seen on the server. If it fails they show again next time, which is the safe way round. */
+async function markAlertsSeen(clientId: string, endpoint: string, alertIds: string[]) {
+  try {
+    const res = await fetch("/api/alerts/seen", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ clientId, endpoint, alertIds }),
+    });
+    if (!res.ok) return;
+    // Nothing unseen left on this device, so clear the app icon's badge.
+    await navigator.clearAppBadge?.().catch(() => {});
+  } catch {
+    // Offline or the like: try again on the next load.
+  }
+}
+
 // Registers the service worker, establishes (or reuses) this device's Push
 // subscription, and keeps its per-release alert thresholds in sync with the
 // server - batching any local changes into a single request after a short
@@ -35,6 +77,9 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
 export function usePushSubscriptionSync(notificationPermission: NotificationPermission) {
   const [subscriptions, setSubscriptions] = useState<SubscriptionMap>({});
   const [sentAlerts, setSentAlerts] = useState<SentAlertMap>({});
+  // Alerts shown this visit. They're marked seen on the server as soon as they
+  // arrive, but stay here until dismissed or the app is reopened.
+  const [unseenAlerts, setUnseenAlerts] = useState<UnseenAlert[]>([]);
   const [isReady, setIsReady] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
@@ -42,6 +87,21 @@ export function usePushSubscriptionSync(notificationPermission: NotificationPerm
   const clientIdRef = useRef<string | null>(null);
   const syncTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasHydratedRef = useRef(false);
+
+  // Shows new alerts (skipping ones already on screen) and marks them seen straight away.
+  const addUnseenAlerts = useCallback((alerts: UnseenAlert[]) => {
+    const clientId = clientIdRef.current;
+    const endpoint = pushSubscriptionRef.current?.endpoint;
+    if (alerts.length > 0 && clientId && endpoint) {
+      void markAlertsSeen(clientId, endpoint, alerts.map((alert) => alert.id));
+    }
+    if (alerts.length === 0) return;
+    setUnseenAlerts((prev) => {
+      const known = new Set(prev.map((alert) => alert.id));
+      const added = alerts.filter((alert) => !known.has(alert.id));
+      return added.length > 0 ? [...prev, ...added] : prev;
+    });
+  }, []);
 
   // Set up the service worker + push subscription once notifications are allowed,
   // then hydrate local state from whatever this device is already subscribed to.
@@ -77,20 +137,7 @@ export function usePushSubscriptionSync(notificationPermission: NotificationPerm
         const clientId = getClientId();
         clientIdRef.current = clientId;
 
-        const params = new URLSearchParams({
-          clientId,
-          endpoint: pushSubscription.endpoint,
-        });
-        const res = await fetch(`/api/subscriptions?${params.toString()}`);
-        if (!res.ok) throw new Error(`Failed to load subscriptions (${res.status})`);
-        const data: {
-          subscriptions: {
-            releaseId: string;
-            thresholdPercentage: number;
-            notifiedAt: string | null;
-            notifiedPercentage: number | null;
-          }[];
-        } = await res.json();
+        const data = await fetchDeviceState(clientId, pushSubscription.endpoint);
 
         if (cancelled) return;
         const hydrated: SubscriptionMap = {};
@@ -102,6 +149,7 @@ export function usePushSubscriptionSync(notificationPermission: NotificationPerm
         hasHydratedRef.current = true;
         setSubscriptions(hydrated);
         setSentAlerts(sent);
+        addUnseenAlerts(data.unseenAlerts ?? []);
         setIsReady(true);
       } catch (err) {
         if (!cancelled) {
@@ -113,7 +161,35 @@ export function usePushSubscriptionSync(notificationPermission: NotificationPerm
     return () => {
       cancelled = true;
     };
-  }, [notificationPermission]);
+  }, [notificationPermission, addUnseenAlerts]);
+
+  // Coming back to the app: pick up alerts that arrived while it was in the
+  // background. Only alerts and "last sent" captions are refreshed, so
+  // alert-level changes still waiting to sync aren't overwritten.
+  useEffect(() => {
+    if (!isReady) return;
+    const refresh = async () => {
+      if (document.visibilityState !== "visible") return;
+      const clientId = clientIdRef.current;
+      const endpoint = pushSubscriptionRef.current?.endpoint;
+      if (!clientId || !endpoint) return;
+      try {
+        const data = await fetchDeviceState(clientId, endpoint);
+        setSentAlerts((prev) => {
+          const next = { ...prev };
+          for (const sub of data.subscriptions) {
+            if (sub.notifiedAt) next[sub.releaseId] = { sentAt: sub.notifiedAt, percentage: sub.notifiedPercentage };
+          }
+          return next;
+        });
+        addUnseenAlerts(data.unseenAlerts ?? []);
+      } catch {
+        // Not worth an error banner; the next return or reload tries again.
+      }
+    };
+    document.addEventListener("visibilitychange", refresh);
+    return () => document.removeEventListener("visibilitychange", refresh);
+  }, [isReady, addUnseenAlerts]);
 
   const syncNow = useCallback(async (current: SubscriptionMap) => {
     const pushSubscription = pushSubscriptionRef.current;
@@ -218,5 +294,20 @@ export function usePushSubscriptionSync(notificationPermission: NotificationPerm
     }
   }, []);
 
-  return { subscriptions, sentAlerts, setReleaseSubscription, sendTestAlert, isReady, error };
+  /** Hides alerts for the rest of this visit (they're already marked seen). */
+  const dismissAlerts = useCallback((alertIds: string[]) => {
+    const dismissed = new Set(alertIds);
+    setUnseenAlerts((prev) => prev.filter((alert) => !dismissed.has(alert.id)));
+  }, []);
+
+  return {
+    subscriptions,
+    sentAlerts,
+    unseenAlerts,
+    dismissAlerts,
+    setReleaseSubscription,
+    sendTestAlert,
+    isReady,
+    error,
+  };
 }

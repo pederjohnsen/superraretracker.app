@@ -95,3 +95,14 @@ export function buildRestockAlertMessage(
     body: `${releaseName} is back in stock at ${currentPercentage}% — grab it before it sells out again.`,
   };
 }
+
+/**
+ * How the app describes an alert the device hadn't seen, next to the
+ * notification wording above so the two stay in step. `summary` follows the
+ * release title in the "new alerts" strip; `card` stands alone on the card.
+ */
+export function describeAlert(kind: "STOCK" | "RESTOCK", percentage: number): { summary: string; card: string } {
+  return kind === "RESTOCK"
+    ? { summary: `is back in stock at ${percentage}%`, card: `Back in stock at ${percentage}%` }
+    : { summary: `dropped to ${percentage}%, matching your alert`, card: `Dropped to ${percentage}%` };
+}
