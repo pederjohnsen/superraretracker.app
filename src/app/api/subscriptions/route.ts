@@ -33,7 +33,8 @@ function isValidBody(body: unknown): body is SyncSubscriptionsBody {
   );
 }
 
-// GET /api/subscriptions?endpoint=... - fetch this device's current per-release alert thresholds.
+// GET /api/subscriptions?clientId=...&endpoint=... - fetch this device's per-release
+// alert thresholds, and the alerts it was sent but hasn't seen in the app yet.
 export async function GET(request: Request) {
   const clientId = new URL(request.url).searchParams.get("clientId");
   const endpoint = new URL(request.url).searchParams.get("endpoint");
@@ -56,7 +57,16 @@ export async function GET(request: Request) {
     notifiedPercentage: sub.notifiedPercentage,
   }));
 
-  return NextResponse.json({ subscriptions });
+  const device = pushSubscription ?? legacyPushSubscription;
+  const unseenAlerts = device
+    ? await db.alert.findMany({
+        where: { pushSubscriptionId: device.id, seenAt: null },
+        select: { id: true, releaseId: true, kind: true, percentage: true, sentAt: true },
+        orderBy: { sentAt: "asc" },
+      })
+    : [];
+
+  return NextResponse.json({ subscriptions, unseenAlerts });
 }
 
 // POST /api/subscriptions - replace this device's push subscription + release alert set in one call.

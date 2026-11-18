@@ -37,6 +37,7 @@ model Release {
 
   stockChecks         StockCheck[]
   subscriptions       ReleaseSubscription[]
+  alerts              Alert[]
   pollSchedule        ReleasePollSchedule?
 }
 
@@ -80,6 +81,7 @@ model PushSubscription {
   createdAt     DateTime              @default(now())
 
   subscriptions ReleaseSubscription[]
+  alerts        Alert[]
 }
 
 // Links a push subscription to a release with the stock threshold that should trigger a notification.
@@ -98,4 +100,33 @@ model ReleaseSubscription {
   pushSubscriptionId  String           @db.Uuid
 
   @@unique([releaseId, pushSubscriptionId])
+}
+
+enum AlertKind {
+  STOCK
+  RESTOCK
+}
+
+// Every alert sent to a device, so the app can show the ones it hasn't seen
+// yet ("2 new alerts since your last visit"), even if the notification was
+// swiped away or never arrived. Linked to the device and the release rather
+// than the subscription, so changing the alert level or untracking doesn't
+// erase what was sent. Kept for 30 days.
+model Alert {
+  id                 String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  kind               AlertKind
+  // Stock % when the alert was sent.
+  percentage         Int
+  sentAt             DateTime         @default(now())
+  // When this device's app first showed it; null until then.
+  seenAt             DateTime?
+
+  release            Release          @relation(fields: [releaseId], references: [id], onDelete: Cascade)
+  releaseId          String           @db.Uuid
+
+  pushSubscription   PushSubscription @relation(fields: [pushSubscriptionId], references: [id], onDelete: Cascade)
+  pushSubscriptionId String           @db.Uuid
+
+  @@index([pushSubscriptionId, seenAt])
+  @@index([sentAt])
 }

@@ -66,7 +66,7 @@ The scheduled endpoints accept the secret as `Authorization: Bearer <CRON_SECRET
 | Endpoint | What it does |
 |---|---|
 | `GET /api/poll` | Checks the stock of releases that are due, saves covers and UK prices, and sends alerts. Each release is polled more often while its stock is falling fast. |
-| `GET /api/monitor` | Adds new releases from the store's collections, and fills in the cover, price and saved title parts of any release still missing them. Run just after the 4pm UK announcement (set the cron-job.org job's time zone to Europe/London). `?dryRun=1` lists what it would add without saving; `?days=30` looks further back than the usual 7 days. |
+| `GET /api/monitor` | Adds new releases from the store's collections, and fills in the cover, price and saved title parts of any release still missing them. Run just after the 4pm UK announcement (set the cron-job.org job's time zone to Europe/London). `?dryRun=1` lists what it would add without saving; `?days=30` looks further back than the usual 7 days. It also deletes alerts older than 30 days. |
 
 ### When the store changes
 
@@ -78,6 +78,7 @@ New releases are saved with their card title, catalogue number and edition alrea
 
 - **Setup screen** (`src/components/SetupGate.tsx`): the release list only opens once notifications are on. The steps depend on the device: iPhone and iPad add the app to the Home Screen, Android installs it, computers go straight to notifications.
 - **Release list** (`src/app/page.tsx`): search, platform, sort and "Tracked only" in a bar pinned to the top (a bottom sheet on phones), and a card per release.
+- **Alert history** (`src/lib/alerts.ts`): every stock and restock alert is saved as an `Alert` for the device before its push goes out, so the app can show the ones the device hasn't seen yet, even if the notification was swiped away or never arrived. `GET /api/subscriptions` returns them as `unseenAlerts`, and `POST /api/alerts/seen` marks them seen once shown. Alerts are kept for 30 days. Tapping a notification opens the app at the release (`/?release=<key>`), or, if the app is open, brings it forward and posts `{ type: "open-release", key }` to it; the app icon's badge shows the unseen count.
 - **Stock tiers** (`src/lib/stock.ts`): one function gives both the card label and the notification wording, so they always agree.
 - **Store titles** (`src/lib/release-title.ts`): "[Special Edition] SE#03: Haste" is split into edition, catalogue number and title. The platform comes from the release's `type`.
 - **Theme**: light or dark, following the device until the person picks one; the choice is saved in a `theme` cookie so the server renders it on first paint.
