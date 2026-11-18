@@ -1,7 +1,16 @@
 import { db } from "@/lib/db";
-import { fetchProductPricePence, type ProductPage } from "@/lib/scraper";
+import { getPublisher } from "@/lib/publishers";
+import type { ProductSnapshot } from "@/lib/publishers/types";
 
-export type ReleaseDetails = { id: string; key: string; url: string; coverUrl: string | null; pricePence: number | null };
+export type ReleaseDetails = {
+  id: string;
+  key: string;
+  url: string;
+  name: string;
+  publisher: string;
+  coverUrl: string | null;
+  pricePence: number | null;
+};
 
 /**
  * Saves the cover when it's new or has changed, and fetches the price once per
@@ -13,14 +22,14 @@ export type ReleaseDetails = { id: string; key: string; url: string; coverUrl: s
  */
 export async function saveProductDetails(
   release: ReleaseDetails,
-  page: Pick<ProductPage, "coverUrl">,
+  page: Pick<ProductSnapshot, "coverUrl">,
 ): Promise<{ coverUrl?: string; pricePence?: number }> {
   const data: { coverUrl?: string; pricePence?: number } = {};
   if (page.coverUrl && page.coverUrl !== release.coverUrl) data.coverUrl = page.coverUrl;
 
   if (release.pricePence === null) {
     try {
-      const pricePence = await fetchProductPricePence(release.url);
+      const pricePence = await getPublisher(release.publisher).fetchPrice(release);
       if (pricePence !== null) data.pricePence = pricePence;
     } catch (err) {
       console.error(`Failed to fetch the price for release ${release.key}:`, err);
