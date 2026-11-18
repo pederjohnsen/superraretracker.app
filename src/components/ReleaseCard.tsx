@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Bell, BellOff, BellRing, ExternalLink } from "lucide-react";
+import { Bell, BellOff, BellRing, ExternalLink, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
@@ -22,6 +22,10 @@ type ReleaseCardProps = {
   canTrack: boolean;
   onThresholdChange: (threshold: number | null) => void;
   now: number | null;
+  /** An alert this device hadn't seen: "Dropped to 24% · 20 min ago", with its own dismiss. */
+  newAlert?: { text: string; onDismiss: () => void };
+  /** Just jumped to from the alerts strip or a notification: outlined for a moment. */
+  highlighted?: boolean;
 };
 
 /**
@@ -29,7 +33,16 @@ type ReleaseCardProps = {
  * action row. Tracking swaps the Track button for the alert-level select at the
  * same size, so the card never changes height.
  */
-export function ReleaseCard({ release, threshold, sentAlert, canTrack, onThresholdChange, now }: ReleaseCardProps) {
+export function ReleaseCard({
+  release,
+  threshold,
+  sentAlert,
+  canTrack,
+  onThresholdChange,
+  now,
+  newAlert,
+  highlighted,
+}: ReleaseCardProps) {
   const tracked = threshold !== undefined;
   const headingId = `release-${release.key}`;
   // Before launch any reading is stale, so every alert level is allowed.
@@ -40,8 +53,9 @@ export function ReleaseCard({ release, threshold, sentAlert, canTrack, onThresho
     <article
       aria-labelledby={headingId}
       className={cn(
-        "flex flex-1 flex-col gap-3 rounded-md border bg-card p-3 text-card-foreground",
-        tracked && "border-primary/60",
+        "flex flex-1 flex-col gap-3 rounded-md border bg-card p-3 text-card-foreground transition-shadow duration-300 motion-reduce:transition-none",
+        (tracked || newAlert) && "border-primary/60",
+        highlighted && "border-primary ring-4 ring-primary/25",
       )}
     >
       <div className="flex gap-3">
@@ -54,7 +68,8 @@ export function ReleaseCard({ release, threshold, sentAlert, canTrack, onThresho
             {release.reprint && <Badge variant="edition">Reprint</Badge>}
             {release.unsealed && <Badge variant="platform">Unsealed</Badge>}
           </div>
-          <h2 id={headingId} className="m-0 line-clamp-2 text-sm leading-snug font-semibold">
+          {/* Focusable so jumping to the card can move focus here. */}
+          <h2 id={headingId} tabIndex={-1} className="m-0 line-clamp-2 text-sm leading-snug font-semibold focus:outline-none">
             {release.title}
           </h2>
           <p className="m-0 text-xs text-muted-foreground">
@@ -67,6 +82,22 @@ export function ReleaseCard({ release, threshold, sentAlert, canTrack, onThresho
           </p>
         </div>
       </div>
+
+      {newAlert && (
+        <div className="flex items-center gap-2 rounded-md border border-primary/40 bg-primary/10 py-0.5 pr-0.5 pl-2.5">
+          <span className="rounded-full bg-primary px-1.5 text-[11px] font-semibold text-primary-foreground">New</span>
+          <p className="m-0 min-w-0 flex-1 truncate text-xs font-medium">{newAlert.text}</p>
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label={`Dismiss alert for ${release.title}`}
+            title="Dismiss"
+            onClick={newAlert.onDismiss}
+          >
+            <X aria-hidden />
+          </Button>
+        </div>
+      )}
 
       <StockMeter
         stock={release.lastStockPercentage}

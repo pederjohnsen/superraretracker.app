@@ -1,16 +1,19 @@
 'use client';
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { EmptyState } from "@/components/EmptyState";
 import { FilterBar } from "@/components/FilterBar";
 import { ReleaseCard } from "@/components/ReleaseCard";
 import { SetupGate } from "@/components/SetupGate";
+import { UnseenSummary, type UnseenSummaryItem } from "@/components/UnseenSummary";
 import { useDeviceSetup } from "@/hooks/useDeviceSetup";
 import { useNow } from "@/hooks/useNow";
-import { usePushSubscriptionSync } from "@/hooks/usePushSubscriptionSync";
+import { usePushSubscriptionSync, type UnseenAlert } from "@/hooks/usePushSubscriptionSync";
 import { useReleases } from "@/hooks/useReleases";
 import { useStoredState } from "@/hooks/useStoredState";
-import { PLATFORM_ORDER } from "@/lib/platform";
+import { formatTimeAgo } from "@/lib/format";
+import { PLATFORM_LABEL, PLATFORM_ORDER } from "@/lib/platform";
+import { describeAlert } from "@/lib/stock";
 import type { ReleaseType } from "../../zenstack/models";
 import {
   filterReleases,
@@ -29,13 +32,23 @@ const IN_STOCK_ONLY_STORAGE_KEY = "superraretracker.inStockOnly";
 const TRACKED_ONLY_STORAGE_KEY = "superraretracker.trackedOnly";
 const isBooleanString = (value: string): value is "true" | "false" => value === "true" || value === "false";
 const isPlatformSelection = (value: string): value is string => parsePlatformSelection(value) !== null;
+// How long a card stays outlined after jumping to it.
+const HIGHLIGHT_MS = 4_000;
 
 export default function Home() {
   const setup = useDeviceSetup();
   const { permission } = setup;
   const { releases, isLoading, error } = useReleases();
-  const { subscriptions, sentAlerts, setReleaseSubscription, sendTestAlert, isReady, error: subscriptionError } =
-    usePushSubscriptionSync(permission);
+  const {
+    subscriptions,
+    sentAlerts,
+    unseenAlerts,
+    dismissAlerts,
+    setReleaseSubscription,
+    sendTestAlert,
+    isReady,
+    error: subscriptionError,
+  } = usePushSubscriptionSync(permission);
   const now = useNow();
 
   const [search, setSearch] = useState("");
@@ -59,19 +72,47 @@ export default function Home() {
   }, [platformValue, platforms, isLoading]);
   const setSelectedPlatforms = (next: ReleaseType[]) => setPlatformValue(formatPlatformSelection(next));
 
-  const visibleReleases = useMemo(
+  // Unseen alerts by release; a release with several shows its latest.
+  const alertsByRelease = useMemo(() => {
+    const map = new Map<string, UnseenAlert[]>();
+    for (const alert of unseenAlerts) map.set(alert.releaseId, [...(map.get(alert.releaseId) ?? []), alert]);
+    for (const alerts of map.values()) alerts.sort((a, b) => b.sentAt.localeCompare(a.sentAt));
+    return map;
+  }, [unseenAlerts]);
+
+  const visibleReleases = useMemo(() => {
+    const sorted = sortReleases(
+      filterReleases(releases, {
+        search,
+        platforms: selectedPlatforms,
+        inStockOnly,
+        trackedOnly,
+        isTracked: (release) => subscriptions[release.id] !== undefined,
+      }),
+      sort,
+    );
+    // Releases with a new alert come first, otherwise in the chosen order.
+    return [
+      ...sorted.filter((release) => alertsByRelease.has(release.id)),
+      ...sorted.filter((release) => !alertsByRelease.has(release.id)),
+    ];
+  }, [releases, search, selectedPlatforms, inStockOnly, trackedOnly, subscriptions, sort, alertsByRelease]);
+
+  // One line per release in the strip, newest first.
+  const summaryItems = useMemo<UnseenSummaryItem[]>(
     () =>
-      sortReleases(
-        filterReleases(releases, {
-          search,
-          platforms: selectedPlatforms,
-          inStockOnly,
-          trackedOnly,
-          isTracked: (release) => subscriptions[release.id] !== undefined,
-        }),
-        sort,
-      ),
-    [releases, search, selectedPlatforms, inStockOnly, trackedOnly, subscriptions, sort],
+      releases
+        .filter((release) => alertsByRelease.has(release.id))
+        .map((release) => ({ release, latest: alertsByRelease.get(release.id)![0] }))
+        .sort((a, b) => b.latest.sentAt.localeCompare(a.latest.sentAt))
+        .map(({ release, latest }) => ({
+          releaseKey: release.key,
+          title: release.title,
+          detail: [release.catalogue ?? release.edition, PLATFORM_LABEL[release.type]].filter(Boolean).join(" · "),
+          text: describeAlert(latest.kind, latest.percentage).summary,
+          when: now === null ? "" : formatTimeAgo(latest.sentAt, now),
+        })),
+    [releases, alertsByRelease, now],
   );
 
   const trackedCount = releases.filter((release) => subscriptions[release.id] !== undefined).length;
@@ -89,6 +130,85 @@ export default function Home() {
   const [setUpThisVisit, setSetUpThisVisit] = useState(false);
   const [finishedSetup, setFinishedSetup] = useState(false);
   if (setup.ready && permission !== "granted" && !setUpThisVisit) setSetUpThisVisit(true);
+
+  // Jumping to a card: from the alerts strip, a notification tapped while the
+  // app is open, or `?release=` when a notification opens the app.
+  // A notification that opened the app passes its release as `?release=`. Read
+  // once on the client; nothing rendered depends on it, so hydration matches.
+  const [pendingJump, setPendingJump] = useState<string | null>(() =>
+    typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("release"),
+  );
+  const [highlightedKey, setHighlightedKey] = useState<string | null>(null);
+  const clearedFiltersForRef = useRef<string | null>(null);
+  const jumpTo = useCallback((key: string) => {
+    clearedFiltersForRef.current = null;
+    setPendingJump(key);
+  }, []);
+
+  // A notification tapped while the app is open: the service worker focuses this window and says which release.
+  useEffect(() => {
+    const onMessage = (event: MessageEvent) => {
+      if (event.data?.type === "open-release" && typeof event.data.key === "string") jumpTo(event.data.key);
+    };
+    navigator.serviceWorker?.addEventListener("message", onMessage);
+    return () => navigator.serviceWorker?.removeEventListener("message", onMessage);
+  }, [jumpTo]);
+
+  const listShown = setup.ready && permission === "granted" && (!setUpThisVisit || finishedSetup);
+  useEffect(() => {
+    if (!pendingJump || isLoading || !listShown) return;
+    // After the frame is painted, so the card is in the DOM and laid out.
+    const frame = requestAnimationFrame(() => jump(pendingJump));
+    return () => cancelAnimationFrame(frame);
+
+    function jump(key: string) {
+      const done = () => {
+        setPendingJump(null);
+        // Drop ?release= so a reload doesn't jump again.
+        const url = new URL(window.location.href);
+        if (url.searchParams.has("release")) {
+          url.searchParams.delete("release");
+          window.history.replaceState(window.history.state, "", url);
+        }
+      };
+
+      if (!releases.some((release) => release.key === key)) return done();
+      // Hidden by the filters: clear them once, then try again on the next render.
+      if (!visibleReleases.some((release) => release.key === key)) {
+        if (clearedFiltersForRef.current === key) return done();
+        clearedFiltersForRef.current = key;
+        clearFilters();
+        return;
+      }
+
+      const item = document.getElementById(`item-${key}`);
+      if (!item) return;
+      const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      item.scrollIntoView({ block: "center", behavior: reduceMotion ? "auto" : "smooth" });
+      document.getElementById(`release-${key}`)?.focus({ preventScroll: true });
+      setHighlightedKey(key);
+      done();
+    }
+    // clearFilters only sets state, so leaving it out of the deps is safe.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingJump, isLoading, listShown, releases, visibleReleases]);
+
+  useEffect(() => {
+    if (!highlightedKey) return;
+    const timer = setTimeout(() => setHighlightedKey(null), HIGHLIGHT_MS);
+    return () => clearTimeout(timer);
+  }, [highlightedKey]);
+
+  const dismissAllAlerts = () => {
+    dismissAlerts(unseenAlerts.map((alert) => alert.id));
+    // The strip and its button go, so put focus somewhere sensible.
+    document.getElementById("releases-heading")?.focus();
+  };
+  const dismissReleaseAlerts = (release: (typeof releases)[number]) => {
+    dismissAlerts((alertsByRelease.get(release.id) ?? []).map((alert) => alert.id));
+    // The card moves out of the "new" group, so follow it.
+    requestAnimationFrame(() => document.getElementById(`release-${release.key}`)?.focus());
+  };
 
   // Nothing about the device is known until hydration, so show neither screen yet.
   if (!setup.ready) return <main className="flex-1" />;
@@ -130,6 +250,8 @@ export default function Home() {
             </p>
           </div>
 
+          <UnseenSummary items={summaryItems} onJump={jumpTo} onDismiss={dismissAllAlerts} />
+
           <FilterBar
             search={search}
             onSearchChange={setSearch}
@@ -153,18 +275,34 @@ export default function Home() {
             <ReleaseGridSkeleton />
           ) : visibleReleases.length > 0 ? (
             <ul className="m-0 grid list-none gap-3 p-0 sm:grid-cols-2 lg:grid-cols-3">
-              {visibleReleases.map((release) => (
-                <li key={release.key} id={`item-${release.key}`} className="flex">
-                  <ReleaseCard
-                    release={release}
-                    threshold={subscriptions[release.id]}
-                    sentAlert={sentAlerts[release.id]}
-                    canTrack={isReady}
-                    onThresholdChange={(threshold) => setReleaseSubscription(release.id, threshold)}
-                    now={now}
-                  />
-                </li>
-              ))}
+              {visibleReleases.map((release) => {
+                const latestAlert = alertsByRelease.get(release.id)?.[0];
+                return (
+                  <li key={release.key} id={`item-${release.key}`} className="flex">
+                    <ReleaseCard
+                      release={release}
+                      threshold={subscriptions[release.id]}
+                      // The New strip already says what was sent, so the caption goes back to "Checked …".
+                      sentAlert={latestAlert ? undefined : sentAlerts[release.id]}
+                      canTrack={isReady}
+                      onThresholdChange={(threshold) => setReleaseSubscription(release.id, threshold)}
+                      now={now}
+                      highlighted={highlightedKey === release.key}
+                      newAlert={
+                        latestAlert && {
+                          text: [
+                            describeAlert(latestAlert.kind, latestAlert.percentage).card,
+                            now === null ? null : formatTimeAgo(latestAlert.sentAt, now),
+                          ]
+                            .filter(Boolean)
+                            .join(" · "),
+                          onDismiss: () => dismissReleaseAlerts(release),
+                        }
+                      }
+                    />
+                  </li>
+                );
+              })}
             </ul>
           ) : (
             !error && (
