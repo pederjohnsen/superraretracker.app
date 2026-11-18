@@ -42,7 +42,9 @@ Schema changes go through migrations in `zenstack/migrations`, which are committ
 2. Run `pnpm db:migrate:dev --name <what-changed>`. It writes a new migration and applies it to the local database.
 3. Commit the migration with the code that needs it.
 
-On Vercel **production** deploys, `pnpm build` applies any pending migrations to the live database before building (`scripts/migrate-deploy.mjs`). If one fails, the build fails and the previous deployment stays live. Local builds and preview deploys skip this, so they never change the live database. A preview deploy of a branch with a new migration still talks to the live database, so it may error until the branch is merged.
+On Vercel **production** deploys, `pnpm build` applies any pending migrations to the live database before building (`scripts/migrate-deploy.mjs`). If one fails, the build fails and the previous deployment stays live. Local builds skip this, so they never change the live database.
+
+Only `main` is deployed: `vercel.json` turns off preview deploys for every other branch and pull request, since a preview would share the live database. (`**` rather than `*`, so branch names with a `/` are covered too.) The migration step also skips any preview deploy, in case previews are turned back on.
 
 `pnpm db:push` still works for quick experiments on the local database, but anything it changes must also end up in a migration.
 
