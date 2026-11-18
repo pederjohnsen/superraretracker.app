@@ -1,10 +1,11 @@
 import type { Publisher, PublisherKey } from "@/lib/publishers/types";
+import { lostInCult } from "@/lib/publishers/lost-in-cult";
 import { superRareGames } from "@/lib/publishers/super-rare-games";
 
 export type { Publisher, PublisherKey } from "@/lib/publishers/types";
 
 /** Every publisher the app tracks, in the order the monitor runs them. */
-export const PUBLISHERS: Publisher[] = [superRareGames];
+export const PUBLISHERS: Publisher[] = [superRareGames, lostInCult];
 
 const BY_KEY = new Map<string, Publisher>(PUBLISHERS.map((publisher) => [publisher.key, publisher]));
 

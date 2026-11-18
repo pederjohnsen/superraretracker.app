@@ -29,6 +29,8 @@ export type MonitorResult = {
     /** "page" when read from the product page, "published" when it fell back to the store's publish date. */
     releaseDateFrom: "page" | "published";
     url: string;
+    /** Copies made, for stores that say (Lost in Cult); null when it couldn't be read. */
+    printRun?: number | null;
   } & DisplayParts)[];
   /** New products that weren't added, and why. Already-tracked and old products aren't listed. */
   skipped: { publisher: PublisherKey; handle: string; title: string; reason: string }[];
@@ -97,6 +99,8 @@ export async function runReleaseMonitor({
             edition: release.edition,
             publisher: publisher.key,
             currency: publisher.currency,
+            variantId: release.variantId,
+            printRun: release.printRun,
           },
         });
       }
@@ -111,6 +115,7 @@ export async function runReleaseMonitor({
         title: release.title,
         catalogue: release.catalogue,
         edition: release.edition,
+        ...(release.printRun !== undefined && { printRun: release.printRun }),
       });
     }
   }
@@ -164,7 +169,17 @@ async function fillMissingTitleParts(result: MonitorResult, dryRun: boolean) {
 async function fillMissingDetails(result: MonitorResult, dryRun: boolean) {
   const missing = await db.release.findMany({
     where: { OR: [{ coverUrl: null }, { pricePence: null }] },
-    select: { id: true, key: true, url: true, name: true, publisher: true, coverUrl: true, pricePence: true },
+    select: {
+      id: true,
+      key: true,
+      url: true,
+      name: true,
+      publisher: true,
+      coverUrl: true,
+      pricePence: true,
+      variantId: true,
+      printRun: true,
+    },
     orderBy: { releaseDate: "desc" }, // newest first, the ones people look at
   });
   const batch = missing.slice(0, MAX_DETAILS_PER_RUN);

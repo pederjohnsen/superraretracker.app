@@ -5,13 +5,21 @@ import type { ReleaseType } from "../../../zenstack/models";
 // one place and can be changed without touching the poller or monitor.
 
 /** Keys stored in `Release.publisher`. Adding a publisher adds its key here. */
-export type PublisherKey = "super-rare-games";
+export type PublisherKey = "super-rare-games" | "lost-in-cult";
 
 /** ISO 4217 currency of the store's prices. */
 export type Currency = "GBP" | "EUR";
 
 /** The release fields a publisher needs to find its product. */
-export type ReleaseRef = { key: string; url: string; name: string };
+export type ReleaseRef = {
+  key: string;
+  url: string;
+  name: string;
+  /** The store option this release is, for stores that sell editions as options of one product (Lost in Cult). */
+  variantId?: string | null;
+  /** Copies made, when the store says. */
+  printRun?: number | null;
+};
 
 /** One read of a product page. */
 export type ProductSnapshot = {
@@ -19,6 +27,8 @@ export type ProductSnapshot = {
   stockPercentage: number | null;
   /** The product image, sized for the cards, or null if the page has none. */
   coverUrl: string | null;
+  /** Exact copies left, for stores that publish them (Lost in Cult); null when the store doesn't count them. */
+  stockCount?: number | null;
 };
 
 /** What the card shows, split out from the store title. */
@@ -33,6 +43,10 @@ export type NewRelease = {
   releaseDate: Date;
   /** "page" when read from the product page, "published" when it fell back to the store's publish date. */
   releaseDateFrom: "page" | "published";
+  /** The store option, when the release is one option of a product. */
+  variantId?: string;
+  /** Copies made, when the store says; null when it couldn't be read. */
+  printRun?: number | null;
 } & DisplayParts;
 
 export type MonitorFindings = {

@@ -105,6 +105,7 @@ export function ReleaseCard({
         checkedAt={release.lastCheckedAt}
         liveAt={release.stockLiveAt}
         stockNotShown={release.stockNotShown}
+        stockCount={release.stockCount}
         threshold={threshold}
         sentAlert={sentAlert}
         now={now}
@@ -175,7 +176,7 @@ export function ReleaseCard({
             href={release.url}
             target="_blank"
             rel="noopener noreferrer"
-            aria-label={`Store: ${release.title} on Super Rare Games (opens in a new tab)`}
+            aria-label={`Store: ${release.title} on ${release.publisherName} (opens in a new tab)`}
           >
             Store
             <ExternalLink aria-hidden className="size-3.5" />
