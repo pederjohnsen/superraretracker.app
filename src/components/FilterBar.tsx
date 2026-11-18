@@ -10,7 +10,7 @@ import { Sheet, SheetClose, SheetContent, SheetDescription, SheetFooter, SheetTi
 import { Switch } from "@/components/ui/switch";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { isReleaseType, PLATFORM_LABEL, PLATFORM_ORDER } from "@/lib/platform";
-import { isSortOrder, SORT_OPTIONS, type SortOrder } from "@/lib/release-list";
+import { isSortOrder, SORT_OPTIONS, type PublisherOption, type SortOrder } from "@/lib/release-list";
 import { cn } from "@/lib/utils";
 
 type FilterBarProps = {
@@ -21,6 +21,11 @@ type FilterBarProps = {
   /** The platforms picked; empty shows every platform. */
   selectedPlatforms: ReleaseType[];
   onSelectedPlatformsChange: (platforms: ReleaseType[]) => void;
+  /** The publishers that have releases, in display order. The filter only shows with two or more. */
+  publishers: PublisherOption[];
+  /** The publisher keys picked; empty shows every publisher. */
+  selectedPublishers: string[];
+  onSelectedPublishersChange: (publishers: string[]) => void;
   sort: SortOrder;
   onSortChange: (sort: SortOrder) => void;
   inStockOnly: boolean;
@@ -35,8 +40,8 @@ type FilterBarProps = {
 /**
  * Search and filters, pinned to the top while the list scrolls. From 640px,
  * search and sort sit on the first row and the filters on a second: platform
- * toggles (pick any; none shows all) and the In stock only and Tracked only
- * switches. On phones the filters move into a bottom sheet, with each active
+ * and publisher toggles (pick any; none shows all) and the In stock only and
+ * Tracked only switches. On phones the filters move into a bottom sheet, with each active
  * filter shown as a removable chip under the bar.
  */
 export function FilterBar(props: FilterBarProps) {
@@ -45,6 +50,9 @@ export function FilterBar(props: FilterBarProps) {
     onSearchChange,
     selectedPlatforms,
     onSelectedPlatformsChange,
+    publishers,
+    selectedPublishers,
+    onSelectedPublishersChange,
     inStockOnly,
     onInStockOnlyChange,
     trackedOnly,
@@ -54,6 +62,8 @@ export function FilterBar(props: FilterBarProps) {
   } = props;
   const [sheetOpen, setSheetOpen] = useState(false);
   const id = useId();
+  // With one publisher there's nothing to choose between.
+  const showPublishers = publishers.length > 1;
 
   // Sort isn't a filter, so it never gets a chip or counts as active.
   const chips = [
@@ -62,6 +72,13 @@ export function FilterBar(props: FilterBarProps) {
       label: PLATFORM_LABEL[platform],
       remove: () => onSelectedPlatformsChange(selectedPlatforms.filter((picked) => picked !== platform)),
     })),
+    // And one per picked publisher.
+    ...publishers
+      .filter((publisher) => selectedPublishers.includes(publisher.key))
+      .map((publisher) => ({
+        label: publisher.name,
+        remove: () => onSelectedPublishersChange(selectedPublishers.filter((picked) => picked !== publisher.key)),
+      })),
     ...(inStockOnly ? [{ label: "In stock", remove: () => onInStockOnlyChange(false) }] : []),
     ...(trackedOnly ? [{ label: "Tracked only", remove: () => onTrackedOnlyChange(false) }] : []),
   ];
@@ -125,6 +142,19 @@ export function FilterBar(props: FilterBarProps) {
               </div>
               <PlatformToggles {...props} labelledBy={`${id}-sheet-platforms`} inSheet />
             </div>
+            {showPublishers && (
+              <div className="flex flex-col gap-2">
+                <div className="flex items-baseline justify-between gap-2">
+                  <span id={`${id}-sheet-publishers`} className="text-sm font-medium">
+                    Publishers
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {selectedPublishers.length === 0 ? "All publishers" : `${selectedPublishers.length} picked`}
+                  </span>
+                </div>
+                <PublisherToggles {...props} labelledBy={`${id}-sheet-publishers`} inSheet />
+              </div>
+            )}
             <div className="flex flex-col gap-2">
               <label htmlFor={`${id}-sheet-sort`} className="text-sm font-medium">
                 Sort by
@@ -170,11 +200,21 @@ export function FilterBar(props: FilterBarProps) {
       </div>
 
       <div className="hidden flex-wrap items-center justify-between gap-2 sm:flex">
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span id={`${id}-platforms`} className="mr-0.5 text-sm text-muted-foreground">
-            Platforms
-          </span>
-          <PlatformToggles {...props} labelledBy={`${id}-platforms`} />
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span id={`${id}-platforms`} className="mr-0.5 text-sm text-muted-foreground">
+              Platforms
+            </span>
+            <PlatformToggles {...props} labelledBy={`${id}-platforms`} />
+          </div>
+          {showPublishers && (
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span id={`${id}-publishers`} className="mr-0.5 text-sm text-muted-foreground">
+                Publishers
+              </span>
+              <PublisherToggles {...props} labelledBy={`${id}-publishers`} />
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-1">
           <FilterSwitch id={`${id}-in-stock`} label="In stock only" checked={inStockOnly} onCheckedChange={onInStockOnlyChange} />
@@ -203,10 +243,7 @@ export function FilterBar(props: FilterBarProps) {
   );
 }
 
-/**
- * Pick any combination of platforms; picking none shows them all, so there's
- * no "All" button. Pills in the bar, a grid of buttons in the sheet.
- */
+/** Pick any combination of platforms; picking none shows them all, so there's no "All" button. */
 function PlatformToggles({
   platforms,
   selectedPlatforms,
@@ -214,33 +251,78 @@ function PlatformToggles({
   labelledBy,
   inSheet,
 }: FilterBarProps & { labelledBy: string; inSheet?: boolean }) {
-  // Two per row for four, otherwise one row in the sheet.
-  const columns = platforms.length === 4 ? 2 : Math.min(platforms.length, 3);
+  return (
+    <MultiToggle
+      options={platforms.map((platform) => ({ value: platform, label: PLATFORM_LABEL[platform] }))}
+      selected={selectedPlatforms}
+      // Keep the store's order, whatever order they were tapped in.
+      onChange={(values) => onSelectedPlatformsChange(PLATFORM_ORDER.filter((type) => values.filter(isReleaseType).includes(type)))}
+      labelledBy={labelledBy}
+      // Two per row for four, otherwise one row in the sheet.
+      columns={inSheet ? (platforms.length === 4 ? 2 : Math.min(platforms.length, 3)) : undefined}
+    />
+  );
+}
+
+/** The same for publishers. Their names are long, so the sheet stacks them. */
+function PublisherToggles({
+  publishers,
+  selectedPublishers,
+  onSelectedPublishersChange,
+  labelledBy,
+  inSheet,
+}: FilterBarProps & { labelledBy: string; inSheet?: boolean }) {
+  const order = publishers.map((publisher) => publisher.key);
+  return (
+    <MultiToggle
+      options={publishers.map((publisher) => ({ value: publisher.key, label: publisher.name }))}
+      selected={selectedPublishers}
+      onChange={(values) => onSelectedPublishersChange(order.filter((key) => values.includes(key)))}
+      labelledBy={labelledBy}
+      columns={inSheet ? 1 : undefined}
+    />
+  );
+}
+
+/** Pills in the bar; with `columns`, a grid of buttons for the sheet. */
+function MultiToggle({
+  options,
+  selected,
+  onChange,
+  labelledBy,
+  columns,
+}: {
+  options: { value: string; label: string }[];
+  selected: string[];
+  onChange: (values: string[]) => void;
+  labelledBy: string;
+  columns?: number;
+}) {
+  const inSheet = columns !== undefined;
   return (
     <ToggleGroup
       type="multiple"
       spacing={2}
-      value={selectedPlatforms}
-      // Keep the store's order, whatever order they were tapped in.
-      onValueChange={(values) => onSelectedPlatformsChange(PLATFORM_ORDER.filter((type) => values.filter(isReleaseType).includes(type)))}
+      value={selected}
+      onValueChange={onChange}
       aria-labelledby={labelledBy}
       className={cn(inSheet ? "grid w-full" : "flex-wrap")}
       // ToggleGroup sets its gap through --gap in `style`, and any style passed in
       // replaces it (even undefined), so always pass --gap here too.
       style={{ "--gap": 2, ...(inSheet && { gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }) } as CSSProperties}
     >
-      {platforms.map((platform) => (
+      {options.map((option) => (
         <ToggleGroupItem
-          key={platform}
-          value={platform}
+          key={option.value}
+          value={option.value}
           className={cn(
             "gap-1 border border-input bg-transparent px-3 text-muted-foreground hover:bg-accent hover:text-foreground",
             "data-[state=on]:border-primary data-[state=on]:bg-primary/15 data-[state=on]:text-foreground data-[state=on]:hover:bg-primary/25",
             inSheet ? "h-11 min-w-0 rounded-md!" : "rounded-full!",
           )}
         >
-          {selectedPlatforms.includes(platform) && <Check aria-hidden className="size-3.5" strokeWidth={2.4} />}
-          {PLATFORM_LABEL[platform]}
+          {selected.includes(option.value) && <Check aria-hidden className="size-3.5" strokeWidth={2.4} />}
+          {option.label}
         </ToggleGroupItem>
       ))}
     </ToggleGroup>

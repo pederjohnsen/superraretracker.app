@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 type EmptyStateProps = {
   trackedOnly: boolean;
   inStockOnly: boolean;
-  /** Search or platform is also narrowing the list. */
+  /** Search, platform or publisher is also narrowing the list. */
   hasOtherFilters: boolean;
   hasTracked: boolean;
   onClear: () => void;
@@ -18,13 +18,13 @@ function switchNames(names: string[]): string {
 export function EmptyState({ trackedOnly, inStockOnly, hasOtherFilters, hasTracked, onClear }: EmptyStateProps) {
   const switchesOn = [inStockOnly && "In stock only", trackedOnly && "Tracked only"].filter((name) => name !== false);
   let title = "No releases match";
-  let body = "Try a different search or platform.";
+  let body = "Try a different search, platform or publisher.";
 
   if (trackedOnly && !hasTracked) {
     title = "You're not tracking anything yet";
     body = "Tap Track on a release to get alerts for it.";
   } else if (switchesOn.length > 0 && hasOtherFilters) {
-    body = `Try a different search or platform, or turn off ${switchNames(switchesOn)}.`;
+    body = `Try a different search, platform or publisher, or turn off ${switchNames(switchesOn)}.`;
   } else if (inStockOnly && trackedOnly) {
     body = `None of the releases you track are in stock right now. Turn off ${switchNames(switchesOn)} to see them all.`;
   } else if (inStockOnly) {
