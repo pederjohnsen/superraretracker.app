@@ -19,7 +19,14 @@ export type PushSubscriptionKeys = {
 export type PushNotificationPayload = {
   title: string;
   body: string;
+  /** Where tapping the notification goes: an app path like "/?release=srg-163". */
   url?: string;
+  /** The release the alert is about, so an open app can jump to its card. */
+  releaseKey?: string;
+  /** Notifications with the same tag replace each other. */
+  tag?: string;
+  /** Unseen alerts on this device, for the app icon's badge. */
+  unseenCount?: number;
 };
 
 export async function sendPushNotification(

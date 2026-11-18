@@ -3,7 +3,7 @@ import { getReleaseLaunchAt } from "@/lib/launch";
 import { scrapeProductPage, type ProductPage } from "@/lib/scraper";
 import { saveProductDetails } from "@/lib/product-details";
 import { buildRestockAlertMessage, buildStockAlertMessage } from "@/lib/stock";
-import { sendPushNotification } from "@/lib/push";
+import { recordAndSendAlert } from "@/lib/alerts";
 
 const MIN_INTERVAL_MINUTES = 1;
 const DEFAULT_MAX_INTERVAL_MINUTES = 240;
@@ -185,19 +185,27 @@ async function notifyEligibleSubscribers(release: DueRelease, currentPercentage:
 
   let notifiedCount = 0;
   for (const subscription of eligible) {
+    const { title, body } = buildStockAlertMessage(release.name, currentPercentage);
     try {
-      const { title, body } = buildStockAlertMessage(release.name, currentPercentage);
-      await sendPushNotification(subscription.pushSubscription, {
+      const { pushError } = await recordAndSendAlert(subscription, release, {
+        kind: "STOCK",
+        percentage: currentPercentage,
         title,
         body,
-        url: release.url,
       });
+      if (pushError) {
+        console.error(`Failed to push the alert to subscription ${subscription.id} for release ${release.key}:`, pushError);
+      } else {
+        notifiedCount++;
+      }
+      // Once the alert is saved the app will show it, so it counts as sent even
+      // if the push failed, rather than being retried (and saved again) every poll.
       await db.releaseSubscription.update({
         where: { id: subscription.id },
         data: { notifiedAt: new Date(), notifiedPercentage: currentPercentage },
       });
-      notifiedCount++;
     } catch (err) {
+      // Not saved, so nothing was sent; the next poll tries again.
       console.error(`Failed to notify subscription ${subscription.id} for release ${release.key}:`, err);
     }
   }
@@ -213,7 +221,13 @@ async function notifyRestockSubscribers(release: DueRelease, currentPercentage: 
   for (const subscription of release.subscriptions) {
     try {
       const { title, body } = buildRestockAlertMessage(release.name, currentPercentage);
-      await sendPushNotification(subscription.pushSubscription, { title, body, url: release.url });
+      const { pushError } = await recordAndSendAlert(subscription, release, {
+        kind: "RESTOCK",
+        percentage: currentPercentage,
+        title,
+        body,
+      });
+      if (pushError) throw pushError;
       notifiedCount++;
     } catch (err) {
       console.error(`Failed to send a restock alert to subscription ${subscription.id} for release ${release.key}:`, err);
