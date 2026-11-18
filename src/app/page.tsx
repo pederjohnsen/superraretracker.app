@@ -18,6 +18,9 @@ import type { ReleaseType } from "../../zenstack/models";
 import {
   filterReleases,
   formatPlatformSelection,
+  formatPublisherSelection,
+  listPublishers,
+  parsePublisherSelection,
   isSortOrder,
   parsePlatformSelection,
   sortReleases,
@@ -30,6 +33,8 @@ const PLATFORM_STORAGE_KEY = "superraretracker.typeFilter";
 const SORT_STORAGE_KEY = "superraretracker.sort";
 const IN_STOCK_ONLY_STORAGE_KEY = "superraretracker.inStockOnly";
 const TRACKED_ONLY_STORAGE_KEY = "superraretracker.trackedOnly";
+const PUBLISHER_STORAGE_KEY = "superraretracker.publishers";
+const isString = (value: string): value is string => typeof value === "string";
 const isBooleanString = (value: string): value is "true" | "false" => value === "true" || value === "false";
 const isPlatformSelection = (value: string): value is string => parsePlatformSelection(value) !== null;
 // How long a card stays outlined after jumping to it.
@@ -72,6 +77,15 @@ export default function Home() {
   }, [platformValue, platforms, isLoading]);
   const setSelectedPlatforms = (next: ReleaseType[]) => setPlatformValue(formatPlatformSelection(next));
 
+  // Publishers work the same way: only ones with releases are offered or count.
+  const [publisherValue, setPublisherValue] = useStoredState(PUBLISHER_STORAGE_KEY, "ALL", isString);
+  const publishers = useMemo(() => listPublishers(releases), [releases]);
+  const selectedPublishers = useMemo(() => {
+    const saved = parsePublisherSelection(publisherValue);
+    return isLoading ? saved : saved.filter((key) => publishers.some((publisher) => publisher.key === key));
+  }, [publisherValue, publishers, isLoading]);
+  const setSelectedPublishers = (next: string[]) => setPublisherValue(formatPublisherSelection(next));
+
   // Unseen alerts by release; a release with several shows its latest.
   const alertsByRelease = useMemo(() => {
     const map = new Map<string, UnseenAlert[]>();
@@ -85,6 +99,7 @@ export default function Home() {
       filterReleases(releases, {
         search,
         platforms: selectedPlatforms,
+        publishers: selectedPublishers,
         inStockOnly,
         trackedOnly,
         isTracked: (release) => subscriptions[release.id] !== undefined,
@@ -96,7 +111,7 @@ export default function Home() {
       ...sorted.filter((release) => alertsByRelease.has(release.id)),
       ...sorted.filter((release) => !alertsByRelease.has(release.id)),
     ];
-  }, [releases, search, selectedPlatforms, inStockOnly, trackedOnly, subscriptions, sort, alertsByRelease]);
+  }, [releases, search, selectedPlatforms, selectedPublishers, inStockOnly, trackedOnly, subscriptions, sort, alertsByRelease]);
 
   // One line per release in the strip, newest first.
   const summaryItems = useMemo<UnseenSummaryItem[]>(
@@ -116,11 +131,13 @@ export default function Home() {
   );
 
   const trackedCount = releases.filter((release) => subscriptions[release.id] !== undefined).length;
-  const hasFilters = search.trim() !== "" || selectedPlatforms.length > 0 || inStockOnly || trackedOnly;
+  const hasFilters =
+    search.trim() !== "" || selectedPlatforms.length > 0 || selectedPublishers.length > 0 || inStockOnly || trackedOnly;
 
   const clearFilters = () => {
     setSearch("");
     setSelectedPlatforms([]);
+    setSelectedPublishers([]);
     setInStockOnlyValue("false");
     setTrackedOnlyValue("false");
   };
@@ -258,6 +275,9 @@ export default function Home() {
             platforms={platforms}
             selectedPlatforms={selectedPlatforms}
             onSelectedPlatformsChange={setSelectedPlatforms}
+            publishers={publishers}
+            selectedPublishers={selectedPublishers}
+            onSelectedPublishersChange={setSelectedPublishers}
             sort={sort}
             onSortChange={setSort}
             inStockOnly={inStockOnly}
@@ -309,7 +329,7 @@ export default function Home() {
               <EmptyState
                 trackedOnly={trackedOnly}
                 inStockOnly={inStockOnly}
-                hasOtherFilters={search.trim() !== "" || selectedPlatforms.length > 0}
+                hasOtherFilters={search.trim() !== "" || selectedPlatforms.length > 0 || selectedPublishers.length > 0}
                 hasTracked={trackedCount > 0}
                 onClear={clearFilters}
               />

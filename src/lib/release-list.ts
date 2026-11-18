@@ -32,6 +32,36 @@ export function formatPlatformSelection(platforms: ReleaseType[]): string {
   return platforms.length === 0 ? "ALL" : platforms.join(",");
 }
 
+/**
+ * Publishers in the order the filter shows them. Ones not listed (added later)
+ * follow, by name.
+ */
+export const PUBLISHER_ORDER = ["super-rare-games", "strictly-limited-games", "lost-in-cult"];
+
+export type PublisherOption = { key: string; name: string };
+
+/** The publishers that have releases, in filter order. */
+export function listPublishers(releases: { publisher: string; publisherName: string }[]): PublisherOption[] {
+  const names = new Map<string, string>();
+  for (const release of releases) names.set(release.publisher, release.publisherName);
+  const rank = (key: string) => {
+    const index = PUBLISHER_ORDER.indexOf(key);
+    return index === -1 ? PUBLISHER_ORDER.length : index;
+  };
+  return [...names]
+    .map(([key, name]) => ({ key, name }))
+    .sort((a, b) => rank(a.key) - rank(b.key) || a.name.localeCompare(b.name));
+}
+
+/** Saved publisher picks: "ALL" (or empty) for every publisher, otherwise a comma-separated list of keys. */
+export function parsePublisherSelection(value: string): string[] {
+  return value === "" || value === "ALL" ? [] : value.split(",").filter(Boolean);
+}
+
+export function formatPublisherSelection(publishers: string[]): string {
+  return publishers.length === 0 ? "ALL" : publishers.join(",");
+}
+
 /** On sale now, with stock left. Sold out, not on sale yet and no stock level on the store don't count. */
 export function isInStock(release: Pick<ListableRelease, "stockLiveAt" | "lastStockPercentage">): boolean {
   return !release.stockLiveAt && release.lastStockPercentage !== null && release.lastStockPercentage > 0;
@@ -43,6 +73,8 @@ export function isSortOrder(value: string): value is SortOrder {
 
 export type ListableRelease = {
   name: string;
+  publisher: string;
+  publisherName: string;
   title: string;
   catalogue: string | null;
   edition: string | null;
@@ -57,6 +89,8 @@ export type ReleaseFilters<T> = {
   search: string;
   /** Platforms to show; empty shows every platform. */
   platforms: ReleaseType[];
+  /** Publisher keys to show; empty shows every publisher. */
+  publishers?: string[];
   inStockOnly: boolean;
   trackedOnly: boolean;
   isTracked: (release: T) => boolean;
@@ -71,11 +105,16 @@ export function filterReleases<T extends ListableRelease>(releases: T[], filters
   const query = normalise(filters.search);
   return releases.filter((release) => {
     if (filters.platforms.length > 0 && !filters.platforms.includes(release.type)) return false;
+    if (filters.publishers && filters.publishers.length > 0 && !filters.publishers.includes(release.publisher)) return false;
     if (filters.inStockOnly && !isInStock(release)) return false;
     if (filters.trackedOnly && !filters.isTracked(release)) return false;
     if (!query) return true;
     // The store name covers title, catalogue and edition in one string.
-    return normalise(release.name).includes(query) || normalise(release.title).includes(query);
+    return (
+      normalise(release.name).includes(query) ||
+      normalise(release.title).includes(query) ||
+      normalise(release.publisherName).includes(query)
+    );
   });
 }
 

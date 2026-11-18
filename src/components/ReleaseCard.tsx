@@ -72,6 +72,7 @@ export function ReleaseCard({
           <h2 id={headingId} tabIndex={-1} className="m-0 line-clamp-2 text-sm leading-snug font-semibold focus:outline-none">
             {release.title}
           </h2>
+          <p className="m-0 text-xs font-medium text-subtle-foreground">{release.publisherName}</p>
           <p className="m-0 text-xs text-muted-foreground">
             {release.pricePence !== null && (
               <>
