@@ -4,12 +4,13 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "zen generate && next build",
+    "build": "zen generate && node scripts/migrate-deploy.mjs && next build",
     "start": "next start",
     "lint": "eslint",
     "db:push": "zen db push",
     "db:migrate:dev": "zen migrate dev",
-    "db:migrate:deploy": "zen migrate deploy"
+    "db:migrate:deploy": "zen migrate deploy",
+    "db:migrate:status": "zen migrate status"
   },
   "dependencies": {
     "@block65/webcrypto-web-push": "^2.0.0",

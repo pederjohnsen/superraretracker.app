@@ -46,3 +46,6 @@ certificates
 /zenstack/schema.ts
 /zenstack/models.ts
 /zenstack/input.ts
+
+# ZenStack's temporary Prisma schema, made while migrating
+zenstack/~schema*.prisma

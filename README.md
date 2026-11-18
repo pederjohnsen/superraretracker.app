@@ -15,18 +15,45 @@ People install the web app, turn on notifications, track a release and choose a 
 
 ```bash
 pnpm install
-pnpm db:push   # create or update the tables from zenstack/schema.zmodel
+docker compose up -d     # a local Postgres (see "Local database")
+pnpm db:migrate:deploy   # create the tables
 pnpm dev
 ```
 
 `pnpm build` runs `zen generate` first; the generated `zenstack/*.ts` files aren't committed.
+
+### Local database
+
+Develop against a local Postgres, never the live one. `compose.yaml` starts one with Docker; any Postgres 15 or newer works. Put its URL in `.env` (not `.env.local`): Next.js and the `zen` commands both read `.env`, so the app and the migrations always point at the same database.
+
+```bash
+# .env
+DATABASE_URL=postgres://postgres:postgres@localhost:5432/superraretracker
+DATABASE_URL_UNPOOLED=postgres://postgres:postgres@localhost:5432/superraretracker
+```
+
+To copy the live data across, dump it with `pg_dump --data-only` and restore it into the local database after `pnpm db:migrate:deploy`.
+
+### Changing the schema
+
+Schema changes go through migrations in `zenstack/migrations`, which are committed:
+
+1. Edit `zenstack/schema.zmodel`.
+2. Run `pnpm db:migrate:dev --name <what-changed>`. It writes a new migration and applies it to the local database.
+3. Commit the migration with the code that needs it.
+
+On Vercel **production** deploys, `pnpm build` applies any pending migrations to the live database before building (`scripts/migrate-deploy.mjs`). If one fails, the build fails and the previous deployment stays live. Local builds skip this, so they never change the live database.
+
+Only `main` is deployed: `vercel.json` turns off preview deploys for every other branch and pull request, since a preview would share the live database. (`**` rather than `*`, so branch names with a `/` are covered too.) The migration step also skips any preview deploy, in case previews are turned back on.
+
+`pnpm db:push` still works for quick experiments on the local database, but anything it changes must also end up in a migration.
 
 ### Environment variables
 
 | Variable | Used for |
 |---|---|
 | `DATABASE_URL` | Postgres connection (pooled) |
-| `DATABASE_URL_UNPOOLED` | Direct connection, for `pnpm db:push` |
+| `DATABASE_URL_UNPOOLED` | Direct connection, used by migrations |
 | `WEB_PUSH_VAPID_PUBLIC_KEY`, `WEB_PUSH_VAPID_PRIVATE_KEY` | Signing push notifications |
 | `NEXT_PUBLIC_WEB_PUSH_VAPID_PUBLIC_KEY` | The same public key, for subscribing in the browser |
 | `WEB_PUSH_VAPID_SUBJECT` | Contact for push services (defaults to `mailto:admin@superraretracker.app`) |
